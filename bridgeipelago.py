@@ -103,9 +103,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 DiscordClient = discord.Client(intents=intents)
 tree = app_commands.CommandTree(DiscordClient)
-
-#TO DO - Central Control for bot I'll just leave this in for now.
-DiscordGuildID = 1171964435741544498
+DiscordGuildID = 190918795320098816
 
 # Make sure all of the directories exist before we start creating files
 if not os.path.exists(ArchDataDirectory):
@@ -306,7 +304,7 @@ async def on_ready():
     await DebugChannel.send('Bot connected. Debug control - Online.')
 
     # We wont sync the command tree for now, need to roll out central control first.
-    #await tree.sync(guild=discord.Object(id=DiscordGuildID))
+    await tree.sync(guild=discord.Object(id=DiscordGuildID))
 
     #Start background tasks
     CheckArchHost.start()
