@@ -35,7 +35,7 @@ from matplotlib.ticker import MaxNLocator
 import numpy as np
 
 #Websocket Dependencies
-from websocket import WebSocketApp, enableTrace
+from websockets.sync.client import connect, ClientConnection
 
 #Discord Dependencies
 from discord.ext import tasks
@@ -150,9 +150,9 @@ class TrackerClient:
         server_uri: str,
         port: str,
         slot_name: str,
-        on_death_link: callable = None, 
-        on_item_send: callable = None, 
-        on_chat_send: callable = None, 
+        on_death_link: callable = None,
+        on_item_send: callable = None,
+        on_chat_send: callable = None,
         on_datapackage: callable = None,
         verbose_logging: bool = False,
         **kwargs: typing.Any
@@ -165,25 +165,67 @@ class TrackerClient:
         self.on_chat_send = on_chat_send
         self.on_datapackage = on_datapackage
         self.verbose_logging = verbose_logging
-        self.web_socket_app_kwargs = kwargs
+        self.ap_connection_kwargs = kwargs
         self.uuid: int = uuid.getnode()
-        self.wsapp: WebSocketApp = None
+        self.ap_connection: ClientConnection = None
         self.socket_thread: Thread = None
 
-    def start(self) -> None:
-        print("Attempting to open an Archipelago MultiServer websocket connection in a new thread.")
-        enableTrace(self.verbose_logging)
-        self.wsapp = WebSocketApp(
-            f'{self.server_uri}:{self.port}',
-            on_message=self.on_message,
-            on_error=self.on_error,
-            on_close=self.on_close,
-            **self.web_socket_app_kwargs,
-        )
+    def run(self):
+        """Handles incoming messages from the Archipelago MultiServer."""
+        DebugMode = os.getenv('DebugMode')
+        for RawMessage in self.ap_connection:
 
-        self.socket_thread = Thread(target=self.wsapp.run_forever)
-        self.socket_thread.daemon = True
-        self.socket_thread.start()
+            if(DebugMode == "true"):
+                print("==RawMessage==")
+                print(RawMessage)
+                print("=====")
+
+            for i in range(len(json.loads(RawMessage))):
+
+                args: dict = json.loads(RawMessage)[i]
+                cmd = args.get('cmd')
+
+                if(DebugMode == "true"):
+                    print("==Args==")
+                    print(args)
+                    print("=====")
+
+                if cmd == self.MessageCommand.ROOM_INFO.value:
+                    self.send_connect()
+                    self.get_datapackage()
+                elif cmd == self.MessageCommand.DATA_PACKAGE.value:
+                    WriteDataPackage(args)
+                elif cmd == self.MessageCommand.CONNECTED.value:
+                    WriteConnectionPackage(args)
+                    print("Connected to server.")
+                elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
+                    print("Connection refused by server - check your slot name / port / whatever, and try again.")
+                    print(args)
+                    seppuku_queue.put(args)
+                    exit()
+                elif cmd == self.MessageCommand.PRINT_JSON.value:
+                    if args.get('type') == 'ItemSend' and self.on_item_send:
+                        self.on_item_send(args)
+                    elif args.get('type') == 'Chat':
+                        if EnableChatMessages == "true" and self.on_chat_send:
+                            self.on_chat_send(args)
+                    elif args.get('type') == 'ServerChat':
+                        if EnableServerChatMessages == "true" and self.on_chat_send:
+                             self.on_chat_send(args)
+                    elif args.get('type') == 'Goal':
+                        if EnableGoalMessages == "true" and self.on_chat_send:
+                            self.on_chat_send(args)
+                    elif args.get('type') == 'Release':
+                        if EnableReleaseMessages == "true" and self.on_chat_send:
+                            self.on_chat_send(args)
+                    elif args.get('type') == 'Collect':
+                        if EnableCollectMessages == "true" and self.on_chat_send:
+                            self.on_chat_send(args)
+                    elif args.get('type') == 'Countdown':
+                        if EnableCountdownMessages == "true" and self.on_chat_send:
+                            self.on_chat_send(args)
+                elif 'DeathLink' in args.get('tags', []) and self.on_death_link:
+                    self.on_death_link(args)
 
     def on_error(self, string, opcode) -> None:
         if self.verbose_logging:
@@ -193,77 +235,9 @@ class TrackerClient:
         websocket_queue.put("Tracker Error...")
         sys.exit()
 
-    def on_close(self, string, opcode, flag) -> None:
-        if self.verbose_logging:
-            print(f"closed self: {self}")
-            print(f"closed string: {string}")
-            print(f"closed opcode: {opcode}") #1001 used for closure initiated by the server
-            print(f"closed opcode: {flag}")
+    def on_close(self) -> None:
         websocket_queue.put("Tracker Closed...")
         sys.exit()
-
-    def on_message(self, wsapp: WebSocketApp, RawMessage: str) -> None:
-        """Handles incoming messages from the Archipelago MultiServer."""
-
-        DebugMode = os.getenv('DebugMode')
-        if(DebugMode == "true"):
-            print("==RawMessage==")
-            print(RawMessage)
-            print("=====")
-
-        for i in range(len(json.loads(RawMessage))):
-
-            args: dict = json.loads(RawMessage)[i]
-            cmd = args.get('cmd')
-
-            if(DebugMode == "true"):
-                print("==Args==")
-                print(args)
-                print("=====")
-
-            if cmd == self.MessageCommand.ROOM_INFO.value:
-                self.send_connect()
-                self.get_datapackage()
-            elif cmd == self.MessageCommand.DATA_PACKAGE.value:
-                WriteDataPackage(args)
-            elif cmd == self.MessageCommand.CONNECTED.value:
-                WriteConnectionPackage(args)
-                print("Connected to server.")
-            elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
-                print("Connection refused by server - check your slot name / port / whatever, and try again.")
-                print(args)
-                seppuku_queue.put(args)
-                exit()
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'ItemSend':
-                if self.on_item_send:
-                    self.on_item_send(args)
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'Chat':
-                if EnableChatMessages == "true":
-                    if self.on_chat_send:
-                        self.on_chat_send(args)
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'ServerChat':
-                if EnableServerChatMessages == "true":
-                    if self.on_chat_send:
-                        self.on_chat_send(args)
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'Goal':
-                if EnableGoalMessages == "true":
-                    if self.on_chat_send:
-                        self.on_chat_send(args)
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'Release':
-                if EnableReleaseMessages == "true":
-                    if self.on_chat_send:
-                        self.on_chat_send(args)
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'Collect':
-                if EnableCollectMessages == "true":
-                    if self.on_chat_send:
-                        self.on_chat_send(args)
-            elif cmd == self.MessageCommand.PRINT_JSON.value and args.get('type') == 'Countdown':
-                if EnableCountdownMessages == "true":
-                    if self.on_chat_send:
-                        self.on_chat_send(args)
-            elif cmd == self.MessageCommand.BOUNCED.value and 'DeathLink' in args.get('tags', []):
-                if self.on_death_link:
-                    self.on_death_link(args)
 
     def send_connect(self) -> None:
         print("Sending `Connect` packet to log in to server.")
@@ -287,10 +261,24 @@ class TrackerClient:
         self.send_message(payload)
 
     def send_message(self, message: dict) -> None:
-        self.wsapp.send(json.dumps([message]))
+        self.ap_connection.send(json.dumps([message]))
 
     def stop(self) -> None:
-        self.wsapp.close()
+        self.ap_connection.close()
+        self.on_close()
+
+    def start(self) -> None:
+        print("Attempting to open an Archipelago MultiServer websocket connection in a new thread.")
+        self.ap_connection = connect(
+            f'{self.server_uri}:{self.port}',
+            max_size=None,
+            **self.ap_connection_kwargs
+
+        )
+        self.socket_thread = Thread(target=self.run)
+        self.socket_thread.daemon = True
+        self.socket_thread.start()
+
 
 
 
