@@ -4,4 +4,4 @@ matplotlib
 numpy
 python-dotenv
 requests
-websocket-client
+websockets
