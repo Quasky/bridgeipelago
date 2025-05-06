@@ -48,6 +48,7 @@ load_dotenv()
 DiscordToken = os.getenv('DiscordToken')
 DiscordBroadcastChannel = int(os.getenv('DiscordBroadcastChannel'))
 DiscordAlertUserID = os.getenv('DiscordAlertUserID')
+DiscordDebugChannel = int(os.getenv('DiscordDebugChannel'))
 ArchHost = os.getenv('ArchipelagoServer')
 ArchPort = os.getenv('ArchipelagoPort')
 ArchipelagoBotSlot = os.getenv('ArchipelagoBotSlot')
@@ -69,7 +70,7 @@ ArchDataDirectory = os.getcwd() + os.getenv('ArchipelagoDataDirectory')
 JoinMessage = os.getenv('JoinMessage')
 DebugMode = os.getenv('DebugMode')
 DiscordJoinOnly = os.getenv('DiscordJoinOnly')
-DiscordDebugChannel = int(os.getenv('DiscordDebugChannel'))
+SelfHostNoWeb = os.getenv('SelfHostNoWeb')
 
 # Metadata
 ArchInfo = ArchHost + ':' + ArchPort
@@ -99,7 +100,7 @@ except:
     print("Unable to query GitHub API for Bridgeipelago version!")
 
 ## Active Player Population
-if(DiscordJoinOnly == "false"):
+if(DiscordJoinOnly == "false" or SelfHostNoWeb == "true"):
     page = requests.get(ArchTrackerURL)
     soup = BeautifulSoup(page.content, "html.parser")
     tables = soup.find("table",id="checks-table")
@@ -382,6 +383,9 @@ async def on_message(message):
 
 @tasks.loop(seconds=900)
 async def CheckArchHost():
+    if SelfHostNoWeb == "true":
+        await CancelProcess()
+
     try:
         ArchRoomID = ArchServerURL.split("/")
         ArchAPIUEL = ArchServerURL.split("/room/")
@@ -683,6 +687,10 @@ async def Command_GroupCheck(DMauthor, game):
         await DebugChannel.send("ERROR IN GROUPCHECK <@"+DiscordAlertUserID+">")
 
 async def Command_Hints(player):
+    if SelfHostNoWeb == "true":
+        await MainChannel.send("This command is not available in self-hosted mode.")
+        return
+    
     try:
         await player.create_dm()
 
@@ -869,6 +877,10 @@ async def Command_DeathCount():
         await DebugChannel.send("ERROR DEATHCOUNT <@"+DiscordAlertUserID+">")
 
 async def Command_CheckCount():
+    if SelfHostNoWeb == "true":
+        await MainChannel.send("This command is not available in self-hosted mode.")
+        return
+
     try:
         page = requests.get(ArchTrackerURL)
         soup = BeautifulSoup(page.content, "html.parser")
@@ -938,6 +950,10 @@ async def Command_CheckCount():
         await DebugChannel.send("ERROR IN CHECKCOUNT <@"+DiscordAlertUserID+">")
 
 async def Command_CheckGraph():
+    if SelfHostNoWeb == "true":
+        await MainChannel.send("This command is not available in self-hosted mode.")
+        return
+
     try:
         page = requests.get(ArchTrackerURL)
         soup = BeautifulSoup(page.content, "html.parser")
