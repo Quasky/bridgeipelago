@@ -420,7 +420,7 @@ async def ProcessItemQueue():
                 itemclass = str(itemmessage['data'][2]['flags'])
                 location = str(LookupLocation(game,itemmessage['data'][4]['text']))
 
-                iitem = SpecialFormat(item,ItemClassColor(itemclass),0)
+                iitem = SpecialFormat(item,ItemClassColor(int(itemclass)),0)
                 message = "" + name + " found their " + iitem + "\nCheck: " + location
 
 
@@ -439,7 +439,7 @@ async def ProcessItemQueue():
                 recipient = str(LookupSlot(itemmessage['data'][4]['text']))
                 location = str(LookupLocation(game,itemmessage['data'][6]['text']))
 
-                iitem = SpecialFormat(item,ItemClassColor(itemclass),0)
+                iitem = SpecialFormat(item,ItemClassColor(int(itemclass)),0)
                 message = "" + name + " sent " + iitem + " to " + recipient + "\nCheck: " + location
             
 
