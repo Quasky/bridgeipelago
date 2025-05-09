@@ -39,6 +39,15 @@ What this bot will NOT do:
  - Give hints
  - Find the reason the children of this world have forgotten the meaning of Christmas
 
+
+In v1.2.5 messages will be colorcoded to their usefulness in the archipelago run.  
+|Color|Item Type|
+|---|---
+|YELLOW|Progression Item|
+|BLUE|Useful Item|
+|WHITE|Filler/Normal Item|
+|RED|Trap Item|
+
 ---
 ### Ketchmeup
 You can also ask the bot to DM you all the items you've gained since last asking him.

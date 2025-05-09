@@ -420,7 +420,10 @@ async def ProcessItemQueue():
                 itemclass = str(itemmessage['data'][2]['flags'])
                 location = str(LookupLocation(game,itemmessage['data'][4]['text']))
 
-                message = "```" + name + " found their " + item + "\nCheck: " + location + "```"
+                iitem = SpecialFormat(item,ItemClassColor(itemclass),0)
+                message = "" + name + " found their " + iitem + "\nCheck: " + location
+
+
                 ItemCheckLogMessage = name + "||" + item + "||" + name + "||" + location + "\n"
                 BotLogMessage = timecode + "||" + ItemCheckLogMessage
                 o = open(OutputFileLocation, "a")
@@ -436,7 +439,10 @@ async def ProcessItemQueue():
                 recipient = str(LookupSlot(itemmessage['data'][4]['text']))
                 location = str(LookupLocation(game,itemmessage['data'][6]['text']))
 
-                message = "```" + name + " sent " + item + " to " + recipient + "\nCheck: " + location + "```"
+                iitem = SpecialFormat(item,ItemClassColor(itemclass),0)
+                message = "" + name + " sent " + iitem + " to " + recipient + "\nCheck: " + location
+            
+
                 ItemCheckLogMessage = recipient + "||" + item + "||" + name + "||" + location + "\n"
                 BotLogMessage = timecode + "||" + ItemCheckLogMessage
                 o = open(OutputFileLocation, "a")
@@ -457,6 +463,8 @@ async def ProcessItemQueue():
                 message = "Unknown Item Send :("
                 print(message)
                 await SendDebugChannelMessage(message)
+
+            message = "```ansi\n" + message + "```"
 
             if int(itemclass) == 4 and SpoilTraps == 'true':
                 await SendMainChannelMessage(message)
@@ -1134,6 +1142,67 @@ def ItemFilter(itmclass):
     else:
         #If the filter is misconfigured, just send the item. It's the user's fault. :)
         return True
+    
+def ItemClassColor(itmclass):
+    if(itmclass & ( 1 << 0 )):
+        return 4
+    elif(itmclass & ( 1 << 1 )):
+        return 5
+    elif(itmclass & ( 1 << 2 )):
+        return 2
+    else:
+        return 0
+
+def SpecialFormat(text,color,format):
+
+    #Text Colors
+    #30: Gray   - 1
+    #31: Red    - 2
+    #32: Green  - 3
+    #33: Yellow - 4
+    #34: Blue   - 5
+    #35: Pink   - 6
+    #36: Cyan   - 7
+    #37: White  - 8
+
+    #Formats
+    #1: Bold      - 1
+    #4: Underline - 2
+
+    icolor = 0
+    iformat = 0
+
+    match color:
+        case 0:
+            icolor = 0
+        case 1:
+            icolor = 30
+        case 2:
+            icolor = 31
+        case 3:
+            icolor = 32
+        case 4:
+            icolor = 33
+        case 5:
+            icolor = 34
+        case 6:
+            icolor = 35
+        case 7:
+            icolor = 36
+        case 8:
+            icolor = 37
+
+    match format:
+        case 0:
+            iformat = 0
+        case 1:
+            iformat = 1
+        case 2:
+            iformat = 4
+
+    itext =  "\u001b[" + str(iformat) + ";" + str(icolor) + "m" + text + "\u001b[0m"
+    return itext
+    
 
 async def CancelProcess():
     return 69420
