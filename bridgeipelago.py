@@ -85,7 +85,6 @@ ArchConnectionDump = ArchDataDirectory + 'ArchConnectionDump.json'
 ArchRawData = ArchDataDirectory + 'ArchRawData.txt'
 
 # Global Variable Declaration
-ActivePlayers = []
 DumpJSON = []
 ConnectionPackage = []
 
@@ -98,16 +97,6 @@ try:
         print("The current version is: " + GHAPIjson["tag_name"] + " -- You are running: " + BPversion)
 except:
     print("Unable to query GitHub API for Bridgeipelago version!")
-
-## Active Player Population
-if(DiscordJoinOnly == "false" or SelfHostNoWeb == "true"):
-    page = requests.get(ArchTrackerURL)
-    soup = BeautifulSoup(page.content, "html.parser")
-    tables = soup.find("table",id="checks-table")
-    for slots in tables.find_all('tbody'):
-        rows = slots.find_all('tr')
-    for row in rows:
-        ActivePlayers.append((row.find_all('td')[1].text).strip())
 
 #Discord Bot Initialization
 intents = discord.Intents.default()
