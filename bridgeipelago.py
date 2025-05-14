@@ -312,16 +312,31 @@ async def on_ready():
     #await MainChannel.send('Bot connected. Battle control - Online.')
     global DebugChannel
     DebugChannel = DiscordClient.get_channel(DiscordDebugChannel)
-    await DebugChannel.send('Bot connected. Debug control - Online.')
+    #await DebugChannel.send('Bot connected. Debug control - Online.')
 
     # We wont sync the command tree for now, need to roll out central control first.
     #await tree.sync(guild=discord.Object(id=DiscordGuildID))
 
     #Start background tasks
-    CheckArchHost.start()
-    ProcessItemQueue.start()
-    ProcessDeathQueue.start()
-    ProcessChatQueue.start()
+    if not CheckArchHost.is_running():
+        CheckArchHost.start()
+    else:
+        CheckArchHost.restart()
+    
+    if not ProcessItemQueue.is_running():
+        ProcessItemQueue.start()
+    else:
+        ProcessItemQueue.restart()
+    
+    if not ProcessDeathQueue.is_running():
+        ProcessDeathQueue.start()
+    else:
+        ProcessDeathQueue.restart()
+    
+    if not ProcessChatQueue.is_running():
+        ProcessChatQueue.start()
+    else:
+        ProcessChatQueue.restart()
 
     print(JoinMessage)
     print("Async bot started -", DiscordClient.user)
@@ -1276,6 +1291,7 @@ if(DiscordJoinOnly == "false"):
         ConnectionPackage = json.load(f)
 
     time.sleep(3)
+
 
 # The run method is blocking, so it will keep the program running
 def main():
