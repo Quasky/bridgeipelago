@@ -94,6 +94,12 @@ ArchRawData = ArchDataDirectory + 'ArchRawData.txt'
 # Global Variable Declaration
 DumpJSON = []
 ConnectionPackage = []
+ReconnectionTimer = 10
+
+if(DebugMode == "true"):
+    WSdbug = True
+else:
+    WSdbug = False
 
 # Version Checking against GitHub
 try:
@@ -144,7 +150,7 @@ if EnableFlavorDeathlink == "true":
 ## ARCHIPELAGO TRACKER CLIENT + CORE FUNCTION
 class TrackerClient:
     tags: set[str] = {'Tracker', 'DeathLink'}
-    version: dict[str, any] = {"major": 0, "minor": 4, "build": 6, "class": "Version"}
+    version: dict[str, any] = {"major": 0, "minor": 6, "build": 0, "class": "Version"}
     items_handling: int = 0b000  # This client does not receive any items
 
     class MessageCommand(Enum):
@@ -201,7 +207,7 @@ class TrackerClient:
             print(f"error self: {self}")
             print(f"error string: {string}")
             print(f"error opcode: {opcode}")
-        websocket_queue.put("Tracker Error...")
+        websocket_queue.put("!! Tracker Error...")
         sys.exit()
 
     def on_close(self, string, opcode, flag) -> None:
@@ -210,7 +216,7 @@ class TrackerClient:
             print(f"closed string: {string}")
             print(f"closed opcode: {opcode}") #1001 used for closure initiated by the server
             print(f"closed opcode: {flag}")
-        websocket_queue.put("Tracker Closed...")
+        websocket_queue.put("!! Tracker Closed...")
         sys.exit()
 
     def on_message(self, wsapp: WebSocketApp, RawMessage: str) -> None:
@@ -238,10 +244,11 @@ class TrackerClient:
             elif cmd == self.MessageCommand.DATA_PACKAGE.value:
                 WriteDataPackage(args)
             elif cmd == self.MessageCommand.CONNECTED.value:
+                print("-- Writing room-connection info.")
                 WriteConnectionPackage(args)
-                print("Connected to server.")
+                print("-- Connected to server.")
             elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
-                print("Connection refused by server - check your slot name / port / whatever, and try again.")
+                print("!! Connection refused by the AP server - check your slot name / port / whatever, and try again.")
                 print(args)
                 seppuku_queue.put(args)
                 exit()
@@ -277,7 +284,7 @@ class TrackerClient:
                     self.on_death_link(args)
 
     def send_connect(self) -> None:
-        print("Sending `Connect` packet to log in to server.")
+        print("-- Sending `Connect` packet to log in to server.")
         payload = {
             'cmd': 'Connect',
             'game': '',
@@ -291,11 +298,14 @@ class TrackerClient:
         self.send_message(payload)
 
     def get_datapackage(self) -> None:
-        print("Sending `DataPackage` packet to request data.")
-        payload = {
-            'cmd': 'GetDataPackage'
-        }
-        self.send_message(payload)
+        if os.path.exists(ArchGameDump):
+            print("-- DataPackage exists locally. Not requesting data(package) again.")
+        else:
+            print("-- Datapackage does not exist locally. Sending `DataPackage` packet to request data(package).")
+            payload = {
+                'cmd': 'GetDataPackage'
+            }
+            self.send_message(payload)
 
     def send_message(self, message: dict) -> None:
         self.wsapp.send(json.dumps([message]))
@@ -384,26 +394,26 @@ async def on_message(message):
 async def CheckArchHost():
     if SelfHostNoWeb == "true":
         await CancelProcess()
+    else:
+        try:
+            ArchRoomID = ArchServerURL.split("/")
+            ArchAPIUEL = ArchServerURL.split("/room/")
+            RoomAPI = ArchAPIUEL[0]+"/api/room_status/"+ArchRoomID[4]
+            RoomPage = requests.get(RoomAPI)
+            RoomData = json.loads(RoomPage.content)
 
-    try:
-        ArchRoomID = ArchServerURL.split("/")
-        ArchAPIUEL = ArchServerURL.split("/room/")
-        RoomAPI = ArchAPIUEL[0]+"/api/room_status/"+ArchRoomID[4]
-        RoomPage = requests.get(RoomAPI)
-        RoomData = json.loads(RoomPage.content)
-
-        cond = str(RoomData["last_port"])
-        if(cond == ArchPort):
-            return
-        else:
-            print("Port Check Failed")
-            print(RoomData["last_port"])
-            print(ArchPort)
-            message = "Port Check Failed - Restart tracker process <@"+DiscordAlertUserID+">"
-            #await MainChannel.send(message)
-            await DebugChannel.send(message)
-    except:
-        await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
+            cond = str(RoomData["last_port"])
+            if(cond == ArchPort):
+                return
+            else:
+                print("Port Check Failed")
+                print(RoomData["last_port"])
+                print(ArchPort)
+                message = "Port Check Failed - Restart tracker process <@"+DiscordAlertUserID+">"
+                #await MainChannel.send(message)
+                await DebugChannel.send(message)
+        except:
+            await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
 
 @tasks.loop(seconds=1)
 async def ProcessItemQueue():
@@ -1102,6 +1112,9 @@ def WriteDataPackage(data):
     with open(ArchGameDump, 'w') as f:
         json.dump(Games, f)
 
+    # After we load the data, we can empty out the Games variable to clear some memory
+    Games = None
+
 def WriteConnectionPackage(data):
     with open(ArchConnectionDump, 'w') as f:
         json.dump(data, f)
@@ -1244,24 +1257,26 @@ if(DiscordJoinOnly == "false"):
         server_uri=ArchHost,
         port=ArchPort,
         slot_name=ArchipelagoBotSlot,
-        verbose_logging=False,
+        verbose_logging=WSdbug,
         on_chat_send=lambda args : chat_queue.put(args),
         on_death_link=lambda args : death_queue.put(args),
         on_item_send=lambda args : item_queue.put(args)
     )
+    # Start the tracker client in a seperate thread then sleep for 5 seconds to allow the datapackage to download.
     tracker_client.start()
-
     time.sleep(5)
 
-    if seppuku_queue.empty():
-        print("Loading Arch Data...")
-    else:
-        print("Seppuku Initiated - Goodbye Friend")
+    # If there is a critical error in the tracker_client, kill the script.
+    if not seppuku_queue.empty():
+        print("!! Seppuku Initiated - Goodbye Friend")
         exit(1)
+
+    # Since there wasn't a critical error, continue as normal :)
+    print("-- Loading Arch Data...")
 
     # Wait for game dump to be created by tracker client
     while not os.path.exists(ArchGameDump):
-        print(f"waiting for {ArchGameDump} to be created on when data package is received")
+        print(f"-- waiting for {ArchGameDump} to be created on when data package is received")
         time.sleep(2)
 
     with open(ArchGameDump, 'r') as f:
@@ -1269,12 +1284,13 @@ if(DiscordJoinOnly == "false"):
 
     # Wait for connection dump to be created by tracker client
     while not os.path.exists(ArchConnectionDump):
-        print(f"waiting for {ArchConnectionDump} to be created on room connection")
+        print(f"-- waiting for {ArchConnectionDump} to be created on room connection")
         time.sleep(2)
 
     with open(ArchConnectionDump, 'r') as f:
         ConnectionPackage = json.load(f)
 
+    print("-- Arch Data Loaded!")
     time.sleep(3)
 
 # The run method is blocking, so it will keep the program running
@@ -1284,13 +1300,26 @@ def main():
 
     ## Gotta keep the bot running!
     while True:
+        if not seppuku_queue.empty():
+            print("!!! Critical Error Detected !!!")
+            print("Seppuku Initiated - Goodbye Friend")
+            exit(1)
+
         if not websocket_queue.empty():
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
                 print(SQMessage)
-            print("Restarting tracker client...")
+            print("Restarting tracker client in ", ReconnectionTimer, "seconds...")
+            time.sleep(ReconnectionTimer)
             tracker_client.start()
-            time.sleep(10)
+
+            if ReconnectionTimer < 120:
+                ReconnectionTimer = ReconnectionTimer + 5
+            else:
+                print("-- Reconnection Timer is too high, capping to 120 seconds.")
+                ReconnectionTimer = 120
+        else:
+            ReconnectionTimer = 5
 
         try:
             time.sleep(1)
