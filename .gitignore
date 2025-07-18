@@ -3,8 +3,14 @@ ItemQueue/
 RegistrationData/
 logs/
 ArchData/
-bot.py
 bridgeipelago
+
+bot.py
+bot/
+test/
+
+
+
 
 
 # Byte-compiled / optimized / DLL files
