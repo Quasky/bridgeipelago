@@ -133,6 +133,11 @@ Hopefully that makes sense.
 |PlayerRegistrationDirectory|Directory of the Player Registration Mappings*|
 |PlayerItemQueueDirectory|Directory that stores player item queues*|
 |ArchipelagoDataDirectory|Directory for the Archipelago data packages*|
+|QueueOverclock|The speed the bot will process messages|
+||1 - 1/second (default)|
+||0.5 - 2/second|
+||0.2 - 5/second|
+||0.1 - 10/second|
 |JoinMessage|A custom join message (console only) for the bot|
 |DebugMode|Enables extra debug chat/bot options^|
 |SelfHostNoWeb|Disabled WebHost-specific functionality for self-hosted games with no WebHost module|

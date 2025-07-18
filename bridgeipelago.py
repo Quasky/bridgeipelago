@@ -74,6 +74,7 @@ LoggingDirectory = os.getcwd() + os.getenv('LoggingDirectory')
 RegistrationDirectory = os.getcwd() + os.getenv('PlayerRegistrationDirectory')
 ItemQueueDirectory = os.getcwd() + os.getenv('PlayerItemQueueDirectory')
 ArchDataDirectory = os.getcwd() + os.getenv('ArchipelagoDataDirectory')
+QueueOverclock = float(os.getenv('QueueOverclock'))
 JoinMessage = os.getenv('JoinMessage')
 DebugMode = os.getenv('DebugMode')
 DiscordJoinOnly = os.getenv('DiscordJoinOnly')
@@ -418,8 +419,9 @@ async def CheckArchHost():
         except:
             await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=QueueOverclock)
 async def ProcessItemQueue():
+    print("Processing Item Queue")
     try:
         if item_queue.empty():
             return
@@ -495,7 +497,7 @@ async def ProcessItemQueue():
         print(e)
         await SendDebugChannelMessage("Error In Item Queue Process")
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=QueueOverclock)
 async def ProcessDeathQueue():
     if death_queue.empty():
         return
@@ -516,7 +518,7 @@ async def ProcessDeathQueue():
         else:
             return
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=QueueOverclock)
 async def ProcessChatQueue():
     if chat_queue.empty():
         return
