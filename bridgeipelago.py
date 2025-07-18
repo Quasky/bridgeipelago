@@ -653,14 +653,12 @@ async def Command_ClearReg(Sender:str):
 
 async def Command_KetchMeUp(User):
     try:
-        RegistrationFile = RegistrationDirectory + str(User) + ".csv"
+        RegistrationFile = RegistrationDirectory + str(User) + ".json"
         if not os.path.isfile(RegistrationFile):
             await User.send("You've not registered for a slot : (")
         else:
-            r = open(RegistrationFile,"r")
-            RegistrationLines = r.readlines()
-            r.close()
-            for reglines in RegistrationLines:
+            RegistrationContents = json.load(open(RegistrationFile, "r"))
+            for reglines in RegistrationContents:
                 ItemQueueFile = ItemQueueDirectory + reglines.strip() + ".csv"
                 if not os.path.isfile(ItemQueueFile):
                     await User.send("There are no items for " + reglines.strip() + " :/")
@@ -708,7 +706,8 @@ async def Command_KetchMeUp(User):
                         await User.send(ketchupmessage)
                         ketchupmessage = "```"
                 ketchupmessage = ketchupmessage + "```"
-                await User.send(ketchupmessage)
+                if not ketchupmessage == "``````":
+                    await User.send(ketchupmessage)
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN KETCHMEUP <@"+DiscordAlertUserID+">")
@@ -731,7 +730,8 @@ async def Command_GroupCheck(DMauthor, game):
                     await DMauthor.send(ketchupmessage)
                     ketchupmessage = "```"
             ketchupmessage = ketchupmessage + "```"
-            await DMauthor.send(ketchupmessage)
+            if not ketchupmessage == "``````":
+                await DMauthor.send(ketchupmessage)
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN GROUPCHECK <@"+DiscordAlertUserID+">")
@@ -753,14 +753,12 @@ async def Command_Hints(player):
             rows = slots.find_all('tr')
 
 
-        RegistrationFile = RegistrationDirectory + player.name + ".csv"
+        RegistrationFile = RegistrationDirectory + player.name + ".json"
         if not os.path.isfile(RegistrationFile):
             await player.dm_channel.send("You've not registered for a slot : (")
         else:
-            r = open(RegistrationFile,"r")
-            RegistrationLines = r.readlines()
-            r.close()
-            for reglines in RegistrationLines:
+            RegistrationContents = json.load(open(RegistrationFile, "r"))
+            for reglines in RegistrationContents:
 
                 message = "**Here are all of the hints assigned to "+ reglines.strip() +":**"
                 await player.dm_channel.send(message)
@@ -844,7 +842,8 @@ async def Command_Hints(player):
 
                 # Caps off the message
                 checkmessage = checkmessage + "```"
-                await player.dm_channel.send(checkmessage)
+                if not checkmessage == "``````":
+                    await player.send(checkmessage)
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN HINTLIST <@"+DiscordAlertUserID+">")
