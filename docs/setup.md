@@ -4,21 +4,23 @@ Following this guide should get you fairly close to complete.
 If you have any questions, feel free to ask in the [Discord](https://discord.gg/5v9P3qNPXp)
 
 ## Before you continue:
-This bot requires python and pip at a minimum.  
-General knowledge of python is encouraged but not strictly necessary.  
+This bot requires `python` and `pip` at a minimum.  
+General knowledge of python is encouraged but <u>not strictly necessary</u>.  
 I've also written this guide with Linux in mind, but that can be easily accomplished with WSL on windows, or a VM to run the bot.  
-You can figure most errors out by just googling.
+There is some minor help in Step 5 with running python commands in windows.
+
+To be honest, you can figure out most errors by just googling.
 
 
 ## Step 1) Preparing the Archipelago game
-When generating the Archipelago game, make sure the <ins>**bridgeipelago.yaml**</ins> is included in the game to ensure the bot has a lot to listen in on.  
+When generating the Archipelago game, make sure the <ins>**bridgeipelago.yaml**</ins> is included in the game to ensure the bot has a slot to listen in on.  
 This slot has no effect on the AP itself.  
 If you'd like to add-in this bot to an existing game (or not have a dedicated slot for the bot) change ArchipelagoBotSlot in the .env to a valid slot-name.
 
 ## Step 2) Discord Bot Setup (You only need to do this once)
 You'll need a discord bot API token for the bot.
 
-Log into the Discord Devoloper Portal: https://discord.com/developers/applications  
+Log into the Discord Developer Portal: https://discord.com/developers/applications
 And create a new Application/bot
 
 In the **Installation** tab:  
@@ -39,7 +41,7 @@ Copy the OAuth link into your browser and add the bot to the discord of your cho
 You're done with the bot for now, but keep that token handy!
 
 ## Step 3) Discord Channel Setup (You only need to do this once)
-In Discord, enable "Devoloper Mode" for your client  
+In Discord, enable "Developer Mode" for your client
 Create/have two channels for the bot.  
 - One will be where the bot posts all the AP information, and where commands are ran (for your users) 
 - The second will be for debug reasons (for you, I'd keep this private)
@@ -69,22 +71,36 @@ Next, right-click your name and "Copy User ID", copy it down.
 1. Set 'BotItemFilterLevel' to the level you'd like (0, 1, 2)
 - Relay Config
 1. Set desired AP to Discord relay options.
+- Meta Config
+1. Set 'FlavorDeathLink' to 'true' if you'd like custom flavored deathlink messages.
 
 You're free to leave the Advanced Config section as-is unless you know what you're doing.  
-Detailed refrences on the .env can be found on the main [Readme](/README.md)
+Detailed references on the .env can be found on the main [Readme](/README.md)
+
+### Selfhosted AP Servers with no WebHost
+If you run a selfhosted AP server but elect to not have the webhost module running, the bot will throw a fit unless you disable WebHost-specific functionality.  
+In the Advanced Config section:
+- Set 'SelfHostNoWeb' to 'true'
 
 ## Step 5) Create Python venv + Dependencies (You only need to do this once)
-Create the venv: `python -m venv bridgeipelago`  
 
-Join the venv: `source bridgeipelago/bin/activate`  
+### Linux / WSL / MacOS
 
-While inside the venv, run: `pip install -r requirements.txt`
+1. Create the venv: `python -m venv bridgeipelago`
+1. Activate the venv: `source bridgeipelago/bin/activate`
+1. Install dependencies: `pip install -r requirements.txt`
 
+### Windows Users (Powershell):
+You may need to run `Set-ExecutionPolicy Bypass` to enable scripts.
+1. Create the venv: `py -m venv bridgeipelago`
+1. Activate the venv: `./bridgeipelago/Scripts/Activate.ps1`
+1. Install dependencies: `pip install -r requirements.txt`
 
 ## Step 6) Finally: Running the Bot
-Ensure you've joined the venv and setup the .env file, then run: `python3 bridgeipelago.py`
+Ensure you've joined the venv and setup the .env file, then run: `python3 bridgeipelago.py`  
+> Windows users may need to run `py bridgeipelago.py` depending on how Python set up its aliases.
 
-You'll see the bot connect in your Discord channel and join the Archipelago game.
+You'll see the bot connect to your Discord channel and join the Archipelago game.
 
 # Issues:
 You can join the discord and post in the [tech-support](https://discord.gg/wpdPprvYgX) channel for assistance on setting up the bot.

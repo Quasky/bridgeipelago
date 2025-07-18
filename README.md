@@ -39,6 +39,15 @@ What this bot will NOT do:
  - Give hints
  - Find the reason the children of this world have forgotten the meaning of Christmas
 
+
+In v1.2.5 messages will be colorcoded to their usefulness in the Archipelago run.  
+|Color|Item Type|
+|---|---
+|YELLOW|Progression Item|
+|BLUE|Useful Item|
+|WHITE|Filler/Normal Item|
+|RED|Trap Item|
+
 ---
 ### Ketchmeup
 You can also ask the bot to DM you all the items you've gained since last asking him.
@@ -116,24 +125,34 @@ Hopefully that makes sense.
 |CollectMessages|Will relay collect messages|
 |CountdownMessages|Will relay server coutndown messages|
 |DeathlinkMessages|Will relay deathlink messages|
+|**Meta Config**||
+|FlavorDeathLink|Will change deathlink messages to have a little more personality$|
+|DeathLinkLottery|Unused... for now >:) |
 |**Advanced Config**||
 |LoggingDirectory|Directory of the bot's own logs*|
 |PlayerRegistrationDirectory|Directory of the Player Registration Mappings*|
 |PlayerItemQueueDirectory|Directory that stores player item queues*|
 |ArchipelagoDataDirectory|Directory for the Archipelago data packages*|
+|QueueOverclock|The speed the bot will process messages|
+||1 - 1/second (default)|
+||0.5 - 2/second|
+||0.2 - 5/second|
+||0.1 - 10/second|
 |JoinMessage|A custom join message (console only) for the bot|
 |DebugMode|Enables extra debug chat/bot options^|
+|SelfHostNoWeb|Disabled WebHost-specific functionality for self-hosted games with no WebHost module|
 
 **\[%] For group IDs, ensure the '&' character is at the beggining of the ID** 
 
 **\[&] Items will still be logged in the BotLog**
+
+**\[$] Edit /modules/DeathlinkFlavor.py to your heart's content for custom flavor**
 
 **\[*] Ensure directories end in a /**
 
 **\[*] These should be four diffrent directories, all these logs in the same place will break the bot.**
 
 **\[^] DebugMode can expose unintended system information. Use with care.**
-
 
 ---
 ---

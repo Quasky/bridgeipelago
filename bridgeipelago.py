@@ -5,7 +5,7 @@
 # | |_/ /| |   | || (_| || (_| ||  __/| || |_) ||  __/| || (_| || (_| || (_) |
 # \____/ |_|   |_| \__,_| \__, | \___||_|| .__/  \___||_| \__,_| \__, | \___/ 
 #                          __/ |         | |                      __/ |       
-#                         |___/          |_|                     |___/  v1.2.4
+#                         |___/          |_|                     |___/  v1.3.0
 #
 # An Archipelago Discord Bot
 #                - By the Zajcats
@@ -48,13 +48,17 @@ load_dotenv()
 DiscordToken = os.getenv('DiscordToken')
 DiscordBroadcastChannel = int(os.getenv('DiscordBroadcastChannel'))
 DiscordAlertUserID = os.getenv('DiscordAlertUserID')
+DiscordDebugChannel = int(os.getenv('DiscordDebugChannel'))
+
 ArchHost = os.getenv('ArchipelagoServer')
 ArchPort = os.getenv('ArchipelagoPort')
 ArchipelagoBotSlot = os.getenv('ArchipelagoBotSlot')
 ArchTrackerURL = os.getenv('ArchipelagoTrackerURL')
 ArchServerURL = os.getenv('ArchipelagoServerURL')
+
 SpoilTraps = os.getenv('BotItemSpoilTraps')
 ItemFilterLevel = int(os.getenv('BotItemFilterLevel'))
+
 EnableChatMessages = os.getenv('ChatMessages')
 EnableServerChatMessages = os.getenv('ServerChatMessages')
 EnableGoalMessages = os.getenv('GoalMessages')
@@ -62,14 +66,19 @@ EnableReleaseMessages = os.getenv('ReleaseMessages')
 EnableCollectMessages = os.getenv('CollectMessages')
 EnableCountdownMessages = os.getenv('CountdownMessages')
 EnableDeathlinkMessages = os.getenv('DeathlinkMessages')
+
+EnableFlavorDeathlink = os.getenv('FlavorDeathlink')
+EnableDeathlinkLottery = os.getenv('DeathlinkLottery')
+
 LoggingDirectory = os.getcwd() + os.getenv('LoggingDirectory')
 RegistrationDirectory = os.getcwd() + os.getenv('PlayerRegistrationDirectory')
 ItemQueueDirectory = os.getcwd() + os.getenv('PlayerItemQueueDirectory')
 ArchDataDirectory = os.getcwd() + os.getenv('ArchipelagoDataDirectory')
+QueueOverclock = float(os.getenv('QueueOverclock'))
 JoinMessage = os.getenv('JoinMessage')
 DebugMode = os.getenv('DebugMode')
 DiscordJoinOnly = os.getenv('DiscordJoinOnly')
-DiscordDebugChannel = int(os.getenv('DiscordDebugChannel'))
+SelfHostNoWeb = os.getenv('SelfHostNoWeb')
 
 # Metadata
 ArchInfo = ArchHost + ':' + ArchPort
@@ -84,19 +93,24 @@ ArchConnectionDump = ArchDataDirectory + 'ArchConnectionDump.json'
 ArchRawData = ArchDataDirectory + 'ArchRawData.txt'
 
 # Global Variable Declaration
-ActivePlayers = []
 DumpJSON = []
 ConnectionPackage = []
+ReconnectionTimer = 10
 
-## Active Player Population
-if(DiscordJoinOnly == "false"):
-    page = requests.get(ArchTrackerURL)
-    soup = BeautifulSoup(page.content, "html.parser")
-    tables = soup.find("table",id="checks-table")
-    for slots in tables.find_all('tbody'):
-        rows = slots.find_all('tr')
-    for row in rows:
-        ActivePlayers.append((row.find_all('td')[1].text).strip())
+if(DebugMode == "true"):
+    WSdbug = True
+else:
+    WSdbug = False
+
+# Version Checking against GitHub
+try:
+    BPversion = "live-v1.3.0"
+    GHAPIjson = json.loads(requests.get("https://api.github.com/repos/Quasky/bridgeipelago/releases/latest").content)
+    if(GHAPIjson["tag_name"] != BPversion):
+        print("You are not running the current release of Bridgeipelago.")
+        print("The current version is: " + GHAPIjson["tag_name"] + " -- You are running: " + BPversion)
+except:
+    print("Unable to query GitHub API for Bridgeipelago version!")
 
 #Discord Bot Initialization
 intents = discord.Intents.default()
@@ -130,10 +144,14 @@ l.close()
 l = open(DeathTimecodeLocation, "a")
 l.close()
 
+# Load Meta Modules if they are enabled in the .env
+if EnableFlavorDeathlink == "true":
+    from modules.DeathlinkFlavor import GetFlavorText
+
 ## ARCHIPELAGO TRACKER CLIENT + CORE FUNCTION
 class TrackerClient:
     tags: set[str] = {'Tracker', 'DeathLink'}
-    version: dict[str, any] = {"major": 0, "minor": 4, "build": 6, "class": "Version"}
+    version: dict[str, any] = {"major": 0, "minor": 6, "build": 0, "class": "Version"}
     items_handling: int = 0b000  # This client does not receive any items
 
     class MessageCommand(Enum):
@@ -232,15 +250,16 @@ class TrackerClient:
             print(f"error self: {self}")
             print(f"error string: {string}")
             print(f"error opcode: {opcode}")
-        websocket_queue.put("Tracker Error...")
+        websocket_queue.put("!! Tracker Error...")
         sys.exit()
+
 
     def on_close(self) -> None:
         websocket_queue.put("Tracker Closed...")
         sys.exit()
 
     def send_connect(self) -> None:
-        print("Sending `Connect` packet to log in to server.")
+        print("-- Sending `Connect` packet to log in to server.")
         payload = {
             'cmd': 'Connect',
             'game': '',
@@ -254,11 +273,14 @@ class TrackerClient:
         self.send_message(payload)
 
     def get_datapackage(self) -> None:
-        print("Sending `DataPackage` packet to request data.")
-        payload = {
-            'cmd': 'GetDataPackage'
-        }
-        self.send_message(payload)
+        if os.path.exists(ArchGameDump):
+            print("-- DataPackage exists locally. Not requesting data(package) again.")
+        else:
+            print("-- Datapackage does not exist locally. Sending `DataPackage` packet to request data(package).")
+            payload = {
+                'cmd': 'GetDataPackage'
+            }
+            self.send_message(payload)
 
     def send_message(self, message: dict) -> None:
         self.ap_connection.send(json.dumps([message]))
@@ -278,7 +300,6 @@ class TrackerClient:
         self.socket_thread = Thread(target=self.run)
         self.socket_thread.daemon = True
         self.socket_thread.start()
-
 
 
 
@@ -324,6 +345,9 @@ async def on_message(message):
         Status = await Command_ClearReg(str(message.author))
         await SendMainChannelMessage(Status)
 
+    if message.content.startswith('$listreg'):
+        await Command_ListRegistrations(message.author)
+
     # Opens a discord DM with the user, and fires off the Katchmeup process
     # When the user asks, catch them up on checks they're registered for
     ## Yoinks their registration file, scans through it, then find the related ItemQueue file to scan through 
@@ -360,28 +384,32 @@ async def on_message(message):
 
 @tasks.loop(seconds=900)
 async def CheckArchHost():
-    try:
-        ArchRoomID = ArchServerURL.split("/")
-        ArchAPIUEL = ArchServerURL.split("/room/")
-        RoomAPI = ArchAPIUEL[0]+"/api/room_status/"+ArchRoomID[4]
-        RoomPage = requests.get(RoomAPI)
-        RoomData = json.loads(RoomPage.content)
+    if SelfHostNoWeb == "true":
+        await CancelProcess()
+    else:
+        try:
+            ArchRoomID = ArchServerURL.split("/")
+            ArchAPIUEL = ArchServerURL.split("/room/")
+            RoomAPI = ArchAPIUEL[0]+"/api/room_status/"+ArchRoomID[4]
+            RoomPage = requests.get(RoomAPI)
+            RoomData = json.loads(RoomPage.content)
 
-        cond = str(RoomData["last_port"])
-        if(cond == ArchPort):
-            return
-        else:
-            print("Port Check Failed")
-            print(RoomData["last_port"])
-            print(ArchPort)
-            message = "Port Check Failed - Restart tracker process <@"+DiscordAlertUserID+">"
-            #await MainChannel.send(message)
-            await DebugChannel.send(message)
-    except:
-        await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
+            cond = str(RoomData["last_port"])
+            if(cond == ArchPort):
+                return
+            else:
+                print("Port Check Failed")
+                print(RoomData["last_port"])
+                print(ArchPort)
+                message = "Port Check Failed - Restart tracker process <@"+DiscordAlertUserID+">"
+                #await MainChannel.send(message)
+                await DebugChannel.send(message)
+        except:
+            await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=QueueOverclock)
 async def ProcessItemQueue():
+    print("Processing Item Queue")
     try:
         if item_queue.empty():
             return
@@ -398,7 +426,10 @@ async def ProcessItemQueue():
                 itemclass = str(itemmessage['data'][2]['flags'])
                 location = str(LookupLocation(game,itemmessage['data'][4]['text']))
 
-                message = "```" + name + " found their " + item + "\nCheck: " + location + "```"
+                iitem = SpecialFormat(item,ItemClassColor(int(itemclass)),0)
+                message = "" + name + " found their " + iitem + "\nCheck: " + location
+
+
                 ItemCheckLogMessage = name + "||" + item + "||" + name + "||" + location + "\n"
                 BotLogMessage = timecode + "||" + ItemCheckLogMessage
                 o = open(OutputFileLocation, "a")
@@ -414,7 +445,10 @@ async def ProcessItemQueue():
                 recipient = str(LookupSlot(itemmessage['data'][4]['text']))
                 location = str(LookupLocation(game,itemmessage['data'][6]['text']))
 
-                message = "```" + name + " sent " + item + " to " + recipient + "\nCheck: " + location + "```"
+                iitem = SpecialFormat(item,ItemClassColor(int(itemclass)),0)
+                message = "" + name + " sent " + iitem + " to " + recipient + "\nCheck: " + location
+            
+
                 ItemCheckLogMessage = recipient + "||" + item + "||" + name + "||" + location + "\n"
                 BotLogMessage = timecode + "||" + ItemCheckLogMessage
                 o = open(OutputFileLocation, "a")
@@ -436,6 +470,8 @@ async def ProcessItemQueue():
                 print(message)
                 await SendDebugChannelMessage(message)
 
+            message = "```ansi\n" + message + "```"
+
             if int(itemclass) == 4 and SpoilTraps == 'true':
                 await SendMainChannelMessage(message)
             elif int(itemclass) != 4 and ItemFilter(int(itemclass)):
@@ -449,24 +485,28 @@ async def ProcessItemQueue():
         print(e)
         await SendDebugChannelMessage("Error In Item Queue Process")
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=QueueOverclock)
 async def ProcessDeathQueue():
     if death_queue.empty():
         return
     else:
         chatmessage = death_queue.get()
         timecode = time.strftime("%Y||%m||%d||%H||%M||%S")
-        DeathMessage = "**Deathlink received from: " + chatmessage['data']['source'] + "**"
-        DeathLogMessage = timecode + "||" + chatmessage['data']['source'] + "\n"
+        DeathMessage = "**Deathlink received from: " + str(chatmessage['data']['source']) + "**"
+        DeathLogMessage = timecode + "||" + str(chatmessage['data']['source']) + "\n"
         o = open(DeathFileLocation, "a")
         o.write(DeathLogMessage)
         o.close()
         if EnableDeathlinkMessages == "true":
-            await SendMainChannelMessage(DeathMessage)
+            if EnableFlavorDeathlink == "true":
+                FlavorMessage = "Deathlink: " + GetFlavorText(str(chatmessage['data']['source']))
+                await SendMainChannelMessage(FlavorMessage)
+            else:
+                await SendMainChannelMessage(DeathMessage)
         else:
             return
 
-@tasks.loop(seconds=1)
+@tasks.loop(seconds=QueueOverclock)
 async def ProcessChatQueue():
     if chat_queue.empty():
         return
@@ -543,30 +583,56 @@ async def SendDMMessage(message,user):
 
 async def Command_Register(Sender:str, ArchSlot:str):
     try:
-        RegistrationFile = RegistrationDirectory + Sender + ".csv"
-        RegistrationContent = ArchSlot + "\n"
-        # Generate the Registration File if it doesn't exist
-        o = open(RegistrationFile, "a")
-        o.close()
-        # Get contents of the registration file and save it to 'line'
-        o = open(RegistrationFile, "r")
-        line = o.read()
-        o.close()
-        # Check the registration file for ArchSlot, if they are not registered; do so. If they already are; tell them.
-        if not ArchSlot in line:
-            o = open(RegistrationFile, "a")
-            o.write(RegistrationContent)
+        #Compile the Registration File's path
+        RegistrationFile = RegistrationDirectory + Sender + ".json"
+
+        # If the file does not exist, we create it to prevent indexing issues
+        if not os.path.exists(RegistrationFile):
+            o = open(RegistrationFile, "w")
+            o.write("[]")
             o.close()
+
+        # Load the registration file
+        RegistrationContents = json.load(open(RegistrationFile, "r"))
+
+        # Check the registration file for ArchSlot, if they are not registered; do so. If they already are; tell them.
+        if not ArchSlot in RegistrationContents:
+
+            RegistrationContents.append(ArchSlot)
+            json.dump(RegistrationContents, open(RegistrationFile, "w"))
             return "You've been registered for " + ArchSlot + "!"
         else:
             return "You're already registered for that slot."
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN REGISTER <@"+DiscordAlertUserID+">")
+        return "Critical error in REGISTER :("
+
+async def Command_ListRegistrations(Sender):
+    try:
+        RegistrationFile = RegistrationDirectory + str(Sender) + ".json"
+
+        # If the file does not exist, we create it to prevent indexing issues
+        if not os.path.exists(RegistrationFile):
+            o = open(RegistrationFile, "w")
+            o.write("[]")
+            o.close()
+
+        RegistrationContents = json.load(open(RegistrationFile, "r"))
+        if len(RegistrationContents) == 0:
+            await Sender.send("You are not registered for any slots :(")
+        else:
+            Message = "**You are registered for:**\n"
+            for slots in RegistrationContents:
+                Message = Message + slots + "\n"
+            await Sender.send(Message)
+    except Exception as e:
+        print(e)
+        await DebugChannel.send("ERROR IN LISTREG <@"+DiscordAlertUserID+">")
 
 async def Command_ClearReg(Sender:str):
     try:
-        RegistrationFile = RegistrationDirectory + Sender + ".csv"
+        RegistrationFile = RegistrationDirectory + Sender + ".json"
         if not os.path.exists(RegistrationFile):
             return "You're not registered for any slots :("
         os.remove(RegistrationFile)
@@ -577,14 +643,12 @@ async def Command_ClearReg(Sender:str):
 
 async def Command_KetchMeUp(User):
     try:
-        RegistrationFile = RegistrationDirectory + str(User) + ".csv"
+        RegistrationFile = RegistrationDirectory + str(User) + ".json"
         if not os.path.isfile(RegistrationFile):
             await User.send("You've not registered for a slot : (")
         else:
-            r = open(RegistrationFile,"r")
-            RegistrationLines = r.readlines()
-            r.close()
-            for reglines in RegistrationLines:
+            RegistrationContents = json.load(open(RegistrationFile, "r"))
+            for reglines in RegistrationContents:
                 ItemQueueFile = ItemQueueDirectory + reglines.strip() + ".csv"
                 if not os.path.isfile(ItemQueueFile):
                     await User.send("There are no items for " + reglines.strip() + " :/")
@@ -632,7 +696,8 @@ async def Command_KetchMeUp(User):
                         await User.send(ketchupmessage)
                         ketchupmessage = "```"
                 ketchupmessage = ketchupmessage + "```"
-                await User.send(ketchupmessage)
+                if not ketchupmessage == "``````":
+                    await User.send(ketchupmessage)
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN KETCHMEUP <@"+DiscordAlertUserID+">")
@@ -655,12 +720,17 @@ async def Command_GroupCheck(DMauthor, game):
                     await DMauthor.send(ketchupmessage)
                     ketchupmessage = "```"
             ketchupmessage = ketchupmessage + "```"
-            await DMauthor.send(ketchupmessage)
+            if not ketchupmessage == "``````":
+                await DMauthor.send(ketchupmessage)
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN GROUPCHECK <@"+DiscordAlertUserID+">")
 
 async def Command_Hints(player):
+    if SelfHostNoWeb == "true":
+        await MainChannel.send("This command is not available in self-hosted mode.")
+        return
+    
     try:
         await player.create_dm()
 
@@ -673,14 +743,12 @@ async def Command_Hints(player):
             rows = slots.find_all('tr')
 
 
-        RegistrationFile = RegistrationDirectory + player.name + ".csv"
+        RegistrationFile = RegistrationDirectory + player.name + ".json"
         if not os.path.isfile(RegistrationFile):
             await player.dm_channel.send("You've not registered for a slot : (")
         else:
-            r = open(RegistrationFile,"r")
-            RegistrationLines = r.readlines()
-            r.close()
-            for reglines in RegistrationLines:
+            RegistrationContents = json.load(open(RegistrationFile, "r"))
+            for reglines in RegistrationContents:
 
                 message = "**Here are all of the hints assigned to "+ reglines.strip() +":**"
                 await player.dm_channel.send(message)
@@ -764,7 +832,8 @@ async def Command_Hints(player):
 
                 # Caps off the message
                 checkmessage = checkmessage + "```"
-                await player.dm_channel.send(checkmessage)
+                if not checkmessage == "``````":
+                    await player.send(checkmessage)
     except Exception as e:
         print(e)
         await DebugChannel.send("ERROR IN HINTLIST <@"+DiscordAlertUserID+">")
@@ -847,6 +916,10 @@ async def Command_DeathCount():
         await DebugChannel.send("ERROR DEATHCOUNT <@"+DiscordAlertUserID+">")
 
 async def Command_CheckCount():
+    if SelfHostNoWeb == "true":
+        await MainChannel.send("This command is not available in self-hosted mode.")
+        return
+
     try:
         page = requests.get(ArchTrackerURL)
         soup = BeautifulSoup(page.content, "html.parser")
@@ -916,6 +989,10 @@ async def Command_CheckCount():
         await DebugChannel.send("ERROR IN CHECKCOUNT <@"+DiscordAlertUserID+">")
 
 async def Command_CheckGraph():
+    if SelfHostNoWeb == "true":
+        await MainChannel.send("This command is not available in self-hosted mode.")
+        return
+
     try:
         page = requests.get(ArchTrackerURL)
         soup = BeautifulSoup(page.content, "html.parser")
@@ -1053,6 +1130,9 @@ def WriteDataPackage(data):
     with open(ArchGameDump, 'w') as f:
         json.dump(Games, f)
 
+    # After we load the data, we can empty out the Games variable to clear some memory
+    Games = None
+
 def WriteConnectionPackage(data):
     with open(ArchConnectionDump, 'w') as f:
         json.dump(data, f)
@@ -1112,6 +1192,67 @@ def ItemFilter(itmclass):
     else:
         #If the filter is misconfigured, just send the item. It's the user's fault. :)
         return True
+    
+def ItemClassColor(itmclass):
+    if(itmclass & ( 1 << 0 )):
+        return 4
+    elif(itmclass & ( 1 << 1 )):
+        return 5
+    elif(itmclass & ( 1 << 2 )):
+        return 2
+    else:
+        return 0
+
+def SpecialFormat(text,color,format):
+
+    #Text Colors
+    #30: Gray   - 1
+    #31: Red    - 2
+    #32: Green  - 3
+    #33: Yellow - 4
+    #34: Blue   - 5
+    #35: Pink   - 6
+    #36: Cyan   - 7
+    #37: White  - 8
+
+    #Formats
+    #1: Bold      - 1
+    #4: Underline - 2
+
+    icolor = 0
+    iformat = 0
+
+    match color:
+        case 0:
+            icolor = 0
+        case 1:
+            icolor = 30
+        case 2:
+            icolor = 31
+        case 3:
+            icolor = 32
+        case 4:
+            icolor = 33
+        case 5:
+            icolor = 34
+        case 6:
+            icolor = 35
+        case 7:
+            icolor = 36
+        case 8:
+            icolor = 37
+
+    match format:
+        case 0:
+            iformat = 0
+        case 1:
+            iformat = 1
+        case 2:
+            iformat = 4
+
+    itext =  "\u001b[" + str(iformat) + ";" + str(icolor) + "m" + text + "\u001b[0m"
+    return itext
+    
 
 async def CancelProcess():
     return 69420
@@ -1125,6 +1266,7 @@ death_queue = Queue()
 chat_queue = Queue()
 seppuku_queue = Queue()
 websocket_queue = Queue()
+lottery_queue = Queue()
 
 ## Threadded async functions
 if(DiscordJoinOnly == "false"):
@@ -1133,24 +1275,26 @@ if(DiscordJoinOnly == "false"):
         server_uri=ArchHost,
         port=ArchPort,
         slot_name=ArchipelagoBotSlot,
-        verbose_logging=False,
+        verbose_logging=WSdbug,
         on_chat_send=lambda args : chat_queue.put(args),
         on_death_link=lambda args : death_queue.put(args),
         on_item_send=lambda args : item_queue.put(args)
     )
+    # Start the tracker client in a seperate thread then sleep for 5 seconds to allow the datapackage to download.
     tracker_client.start()
-
     time.sleep(5)
 
-    if seppuku_queue.empty():
-        print("Loading Arch Data...")
-    else:
-        print("Seppuku Initiated - Goodbye Friend")
+    # If there is a critical error in the tracker_client, kill the script.
+    if not seppuku_queue.empty():
+        print("!! Seppuku Initiated - Goodbye Friend")
         exit(1)
+
+    # Since there wasn't a critical error, continue as normal :)
+    print("-- Loading Arch Data...")
 
     # Wait for game dump to be created by tracker client
     while not os.path.exists(ArchGameDump):
-        print(f"waiting for {ArchGameDump} to be created on when data package is received")
+        print(f"-- waiting for {ArchGameDump} to be created on when data package is received")
         time.sleep(2)
 
     with open(ArchGameDump, 'r') as f:
@@ -1158,12 +1302,13 @@ if(DiscordJoinOnly == "false"):
 
     # Wait for connection dump to be created by tracker client
     while not os.path.exists(ArchConnectionDump):
-        print(f"waiting for {ArchConnectionDump} to be created on room connection")
+        print(f"-- waiting for {ArchConnectionDump} to be created on room connection")
         time.sleep(2)
 
     with open(ArchConnectionDump, 'r') as f:
         ConnectionPackage = json.load(f)
 
+    print("-- Arch Data Loaded!")
     time.sleep(3)
 
 # The run method is blocking, so it will keep the program running
@@ -1173,13 +1318,26 @@ def main():
 
     ## Gotta keep the bot running!
     while True:
+        if not seppuku_queue.empty():
+            print("!!! Critical Error Detected !!!")
+            print("Seppuku Initiated - Goodbye Friend")
+            exit(1)
+
         if not websocket_queue.empty():
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
                 print(SQMessage)
-            print("Restarting tracker client...")
+            print("Restarting tracker client in ", ReconnectionTimer, "seconds...")
+            time.sleep(ReconnectionTimer)
             tracker_client.start()
-            time.sleep(10)
+
+            if ReconnectionTimer < 120:
+                ReconnectionTimer = ReconnectionTimer + 5
+            else:
+                print("-- Reconnection Timer is too high, capping to 120 seconds.")
+                ReconnectionTimer = 120
+        else:
+            ReconnectionTimer = 5
 
         try:
             time.sleep(1)
@@ -1189,3 +1347,8 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# On 7/12/2024 Bridgeipelago crashed the AP servers and caused Berserker to give me a code review:
+# Berserker - One, what I showed, whatever this bridgeipelago is
+# Exempt-Medic - It's some kind of AP Discord Bot
+# Berserker - Well it's clearly programmed like shit
