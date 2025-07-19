@@ -1266,8 +1266,8 @@ def SpecialFormat(text,color,format):
     return itext
 
 def SetEnvVariable(key, value):
-    if key not in ["ArchipelagoPort", "ArchipelagoTrackerURL", "ArchipelagoServerURL"]:
-        return "Invalid key. Only 'ArchipelagoPort', 'ArchipelagoTrackerURL', and 'ArchipelagoServerURL' can be set."
+    if key not in ["ArchipelagoPort"]:
+        return "Invalid key. Only 'ArchipelagoPort' can be set."
     else:
         if key == "ArchipelagoPort":
             global ArchPort
@@ -1315,7 +1315,7 @@ if(DiscordJoinOnly == "false"):
     time.sleep(5)
 
     # If there is a critical error in the tracker_client, kill the script.
-    if not seppuku_queue.empty():
+    if not seppuku_queue.empty() or not websocket_queue.empty():
         print("!! Seppuku Initiated - Goodbye Friend")
         exit(1)
 
@@ -1359,7 +1359,7 @@ def main():
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
                 print(SQMessage)
-            print("stopping client...")
+            print("Stopping client...")
             try:
                 tracker_client.stop()
             except Exception as e:
