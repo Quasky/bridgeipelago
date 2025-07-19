@@ -17,7 +17,7 @@ import typing
 import uuid
 import os
 import sys
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 from enum import Enum
 import glob
 import random
@@ -95,7 +95,8 @@ ArchRawData = ArchDataDirectory + 'ArchRawData.txt'
 # Global Variable Declaration
 DumpJSON = []
 ConnectionPackage = []
-ReconnectionTimer = 10
+ReconnectionTimer = 5
+EnvPath = os.getcwd() + "/.env"
 
 if(DebugMode == "true"):
     WSdbug = True
@@ -220,7 +221,6 @@ class TrackerClient:
                     print("Connection refused by server - check your slot name / port / whatever, and try again.")
                     print(args)
                     seppuku_queue.put(args)
-                    exit()
                 elif cmd == self.MessageCommand.PRINT_JSON.value:
                     if args.get('type') == 'ItemSend' and self.on_item_send:
                         self.on_item_send(args)
@@ -251,12 +251,9 @@ class TrackerClient:
             print(f"error string: {string}")
             print(f"error opcode: {opcode}")
         websocket_queue.put("!! Tracker Error...")
-        sys.exit()
-
 
     def on_close(self) -> None:
         websocket_queue.put("Tracker Closed...")
-        sys.exit()
 
     def send_connect(self) -> None:
         print("-- Sending `Connect` packet to log in to server.")
@@ -287,19 +284,26 @@ class TrackerClient:
 
     def stop(self) -> None:
         self.ap_connection.close()
-        self.on_close()
 
     def start(self) -> None:
         print("Attempting to open an Archipelago MultiServer websocket connection in a new thread.")
-        self.ap_connection = connect(
-            f'{self.server_uri}:{self.port}',
-            max_size=None,
-            **self.ap_connection_kwargs
-
-        )
-        self.socket_thread = Thread(target=self.run)
-        self.socket_thread.daemon = True
-        self.socket_thread.start()
+        if not port_queue.empty():
+            while not port_queue.empty():
+                tempport = port_queue.get()
+            self.port = tempport
+        try:
+            self.ap_connection = connect(
+                f'{self.server_uri}:{self.port}',
+                max_size=None,
+                **self.ap_connection_kwargs
+            )
+            self.socket_thread = Thread(target=self.run)
+            self.socket_thread.daemon = True
+            self.socket_thread.start()
+        except Exception as e:
+            print("Error while trying to connect to Archipelago MultiServer:")
+            print(e)
+            websocket_queue.put("!! Tracker start error...")
 
 
 
@@ -381,6 +385,15 @@ async def on_message(message):
     
     if message.content.startswith('$archinfo'):
         await Command_ArchInfo(message)
+
+    if message.content.startswith('$setenv'):
+        pair = ((message.content).split('$setenv '))[1].split(' ')
+        rtrnmessage = SetEnvVariable(pair[0], pair[1])
+        await SendMainChannelMessage(rtrnmessage)
+
+    if message.content.startswith('$reloadbot'):
+        ReloadBot()
+        await SendMainChannelMessage("Reloading bot... Please wait.")
 
 @tasks.loop(seconds=900)
 async def CheckArchHost():
@@ -1251,7 +1264,20 @@ def SpecialFormat(text,color,format):
 
     itext =  "\u001b[" + str(iformat) + ";" + str(icolor) + "m" + text + "\u001b[0m"
     return itext
-    
+
+def SetEnvVariable(key, value):
+    if key not in ["ArchipelagoPort", "ArchipelagoTrackerURL", "ArchipelagoServerURL"]:
+        return "Invalid key. Only 'ArchipelagoPort', 'ArchipelagoTrackerURL', and 'ArchipelagoServerURL' can be set."
+    else:
+        if key == "ArchipelagoPort":
+            global ArchPort
+            ArchPort = value
+            port_queue.put(value)
+        set_key(dotenv_path=EnvPath, key_to_set=key, value_to_set=value)
+        return "Key '" + key + "' set to '" + value + "'!"
+
+def ReloadBot():
+    websocket_queue.put("Discord requested the bot to be reloaded!")
 
 async def CancelProcess():
     return 69420
@@ -1266,6 +1292,7 @@ chat_queue = Queue()
 seppuku_queue = Queue()
 websocket_queue = Queue()
 lottery_queue = Queue()
+port_queue = Queue()
 
 ## Threadded async functions
 if(DiscordJoinOnly == "false"):
@@ -1280,7 +1307,11 @@ if(DiscordJoinOnly == "false"):
         on_item_send=lambda args : item_queue.put(args)
     )
     # Start the tracker client in a seperate thread then sleep for 5 seconds to allow the datapackage to download.
-    tracker_client.start()
+    try:
+        tracker_client.start()
+    except Exception as e:
+        print("!!! Tracker can't start!")
+        seppuku_queue.put("Tracker Client can't start! Seppuku initiated.")
     time.sleep(5)
 
     # If there is a critical error in the tracker_client, kill the script.
@@ -1312,6 +1343,8 @@ if(DiscordJoinOnly == "false"):
 
 # The run method is blocking, so it will keep the program running
 def main():
+    global ReconnectionTimer
+    global ArchPort
     DiscordThread = Process(target=Discord)
     DiscordThread.start()
 
@@ -1326,8 +1359,16 @@ def main():
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
                 print(SQMessage)
+            print("stopping client...")
+            try:
+                tracker_client.stop()
+            except Exception as e:
+                print("!!! Tracker Client can't stop!")
+                print(e)
             print("Restarting tracker client in ", ReconnectionTimer, "seconds...")
             time.sleep(ReconnectionTimer)
+
+            # Reset tracker_client with new environment variables
             tracker_client.start()
 
             if ReconnectionTimer < 120:
