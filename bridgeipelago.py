@@ -31,7 +31,9 @@ from matplotlib.ticker import MaxNLocator
 import numpy as np
 
 #Websocket Dependencies
+import websockets
 from websockets.sync.client import connect, ClientConnection
+
 
 #Discord Dependencies
 from discord.ext import tasks
@@ -62,6 +64,8 @@ EnableReleaseMessages = os.getenv('ReleaseMessages')
 EnableCollectMessages = os.getenv('CollectMessages')
 EnableCountdownMessages = os.getenv('CountdownMessages')
 EnableDeathlinkMessages = os.getenv('DeathlinkMessages')
+
+EnableDiscordBridge = os.getenv('DiscordBridgeEnabled')
 
 EnableFlavorDeathlink = os.getenv('FlavorDeathlink')
 EnableDeathlinkLottery = os.getenv('DeathlinkLottery')
@@ -95,6 +99,16 @@ DumpJSON = []
 ConnectionPackage = []
 ReconnectionTimer = 5
 EnvPath = os.getcwd() + "/.env"
+
+## These are the main queues for processing data from the Archipelago Tracker to the Discord Bot
+item_queue = Queue()
+death_queue = Queue()
+chat_queue = Queue()
+seppuku_queue = Queue()
+discordseppuku_queue = Queue()
+websocket_queue = Queue()
+lottery_queue = Queue()
+port_queue = Queue()
 
 if(DebugMode == "true"):
     WSdbug = True
@@ -149,7 +163,7 @@ if EnableFlavorDeathlink == "true":
 
 ## ARCHIPELAGO TRACKER CLIENT + CORE FUNCTION
 class TrackerClient:
-    tags: set[str] = {'Tracker', 'DeathLink'}
+    tags: set[str] = {'TextOnly','Tracker', 'DeathLink'}
     version: dict[str, any] = {"major": 0, "minor": 6, "build": 0, "class": "Version"}
     items_handling: int = 0b000  # This client does not receive any items
 
@@ -188,61 +202,67 @@ class TrackerClient:
         self.socket_thread: Thread = None
 
     def run(self):
-        """Handles incoming messages from the Archipelago MultiServer."""
-        DebugMode = os.getenv('DebugMode')
-        for RawMessage in self.ap_connection:
-
-            if(DebugMode == "true"):
-                print("==RawMessage==")
-                print(RawMessage)
-                print("=====")
-
-            for i in range(len(json.loads(RawMessage))):
-
-                args: dict = json.loads(RawMessage)[i]
-                cmd = args.get('cmd')
+        try:
+            """Handles incoming messages from the Archipelago MultiServer."""
+            DebugMode = os.getenv('DebugMode')
+            for RawMessage in self.ap_connection:
 
                 if(DebugMode == "true"):
-                    print("==Args==")
-                    print(args)
+                    print("==RawMessage==")
+                    print(RawMessage)
                     print("=====")
 
-                if cmd == self.MessageCommand.ROOM_INFO.value:
-                    self.send_connect()
-                    WriteRoomInfo(args)
-                    self.check_datapackage()
-                elif cmd == self.MessageCommand.DATA_PACKAGE.value:
-                    WriteDataPackage(args)
-                elif cmd == self.MessageCommand.CONNECTED.value:
-                    WriteConnectionPackage(args)
-                    print("Connected to server.")
-                elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
-                    print("Connection refused by server - check your slot name / port / whatever, and try again.")
-                    print(args)
-                    seppuku_queue.put(args)
-                elif cmd == self.MessageCommand.PRINT_JSON.value:
-                    if args.get('type') == 'ItemSend' and self.on_item_send:
-                        self.on_item_send(args)
-                    elif args.get('type') == 'Chat':
-                        if EnableChatMessages == "true" and self.on_chat_send:
-                            self.on_chat_send(args)
-                    elif args.get('type') == 'ServerChat':
-                        if EnableServerChatMessages == "true" and self.on_chat_send:
-                             self.on_chat_send(args)
-                    elif args.get('type') == 'Goal':
-                        if EnableGoalMessages == "true" and self.on_chat_send:
-                            self.on_chat_send(args)
-                    elif args.get('type') == 'Release':
-                        if EnableReleaseMessages == "true" and self.on_chat_send:
-                            self.on_chat_send(args)
-                    elif args.get('type') == 'Collect':
-                        if EnableCollectMessages == "true" and self.on_chat_send:
-                            self.on_chat_send(args)
-                    elif args.get('type') == 'Countdown':
-                        if EnableCountdownMessages == "true" and self.on_chat_send:
-                            self.on_chat_send(args)
-                elif 'DeathLink' in args.get('tags', []) and self.on_death_link:
-                    self.on_death_link(args)
+                for i in range(len(json.loads(RawMessage))):
+
+                    args: dict = json.loads(RawMessage)[i]
+                    cmd = args.get('cmd')
+
+                    if(DebugMode == "true"):
+                        print("==Args==")
+                        print(args)
+                        print("=====")
+
+                    if cmd == self.MessageCommand.ROOM_INFO.value:
+                        self.send_connect()
+                        WriteRoomInfo(args)
+                        self.check_datapackage()
+                    elif cmd == self.MessageCommand.DATA_PACKAGE.value:
+                        WriteDataPackage(args)
+                    elif cmd == self.MessageCommand.CONNECTED.value:
+                        WriteConnectionPackage(args)
+                        print("Connected to server.")
+                    elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
+                        print("Connection refused by server - check your slot name / port / whatever, and try again.")
+                        print(args)
+                        seppuku_queue.put(args)
+                    elif cmd == self.MessageCommand.PRINT_JSON.value:
+                        if args.get('type') == 'ItemSend' and self.on_item_send:
+                            self.on_item_send(args)
+                        elif args.get('type') == 'Chat':
+                            if EnableChatMessages == "true" and self.on_chat_send:
+                                self.on_chat_send(args)
+                        elif args.get('type') == 'ServerChat':
+                            if EnableServerChatMessages == "true" and self.on_chat_send:
+                                 self.on_chat_send(args)
+                        elif args.get('type') == 'Goal':
+                            if EnableGoalMessages == "true" and self.on_chat_send:
+                                self.on_chat_send(args)
+                        elif args.get('type') == 'Release':
+                            if EnableReleaseMessages == "true" and self.on_chat_send:
+                                self.on_chat_send(args)
+                        elif args.get('type') == 'Collect':
+                            if EnableCollectMessages == "true" and self.on_chat_send:
+                                self.on_chat_send(args)
+                        elif args.get('type') == 'Countdown':
+                            if EnableCountdownMessages == "true" and self.on_chat_send:
+                                self.on_chat_send(args)
+                    elif 'DeathLink' in args.get('tags', []) and self.on_death_link:
+                        self.on_death_link(args)
+                    else:
+                        print("Unknown command received from Archipelago MultiServer:")
+                        print(args)
+        except websockets.exceptions.ConnectionClosedError as e:
+            print(e)
 
     def on_error(self, string, opcode) -> None:
         if self.verbose_logging:
@@ -309,6 +329,13 @@ class TrackerClient:
             print("Error while trying to connect to Archipelago MultiServer:")
             print(e)
             websocket_queue.put("!! Tracker start error...")
+
+    def debug_print(self, who: str, what: str) -> None:
+        relayed_message = "Discord; " + who + ": " + what
+        payload = {
+            'cmd': 'Say',
+            'text': relayed_message}
+        self.send_message(payload)
 
 
 
@@ -397,23 +424,34 @@ async def on_message(message):
         rtrnmessage = SetEnvVariable(pair[0], pair[1])
         await SendMainChannelMessage(rtrnmessage)
 
-    if message.content.startswith('$reloadbot'):
+    if message.content.startswith('$reloadtracker'):
         ReloadBot()
-        await SendMainChannelMessage("Reloading bot... Please wait.")
+        await SendMainChannelMessage("Reloading tracker... Please wait about 5-10 seconds.")
+    
+    if message.content.startswith('$reloaddiscord'):
+        discordseppuku_queue.put("Reloading Discord bot...")
+        await SendMainChannelMessage("Reloading Discord bot... Please wait.")
+
+    # Broken code for sending messages to AP from discord. :(  im working on it
+    #if not message.content.startswith('$'):
+    #    tracker_client.debug_print(str(message.author), message.content)
+    #    return
 
 @tasks.loop(seconds=1)
 async def CheckCommandQueue():
     if discordseppuku_queue.empty():
             return
     else:
+        while not discordseppuku_queue.empty():
+                QueueMessage = discordseppuku_queue.get()
+        print("++ Shutting down Discord tasks")
         CheckArchHost.stop()
         ProcessItemQueue.stop()
         ProcessDeathQueue.stop()
         ProcessChatQueue.stop()
-        while not discordseppuku_queue.empty():
-            item = discordseppuku_queue.get()
-
-        await DiscordClient.close()
+        
+        print("++ Closing Discord Client")
+        exit()
 
 @tasks.loop(seconds=900)
 async def CheckArchHost():
@@ -546,7 +584,8 @@ async def ProcessChatQueue():
         return
     else:
         chatmessage = chat_queue.get()
-        await SendMainChannelMessage(chatmessage['data'][0]['text'])
+        if not (chatmessage['data'][0]['text']).startswith(ArchipelagoBotSlot):
+            await SendMainChannelMessage(chatmessage['data'][0]['text'])
 
 @tree.command(name="register",
     description="Registers you for AP slot",
@@ -1344,17 +1383,8 @@ async def CancelProcess():
     return 69420
 
 def Discord():
+    print("++ Starting Discord Client")
     DiscordClient.run(DiscordToken)
-
-## Three main queues for processing data from the Archipelago Tracker to the bot
-item_queue = Queue()
-death_queue = Queue()
-chat_queue = Queue()
-seppuku_queue = Queue()
-discordseppuku_queue = Queue()
-websocket_queue = Queue()
-lottery_queue = Queue()
-port_queue = Queue()
 
 ## Threadded async functions
 if(DiscordJoinOnly == "false"):
@@ -1469,6 +1499,16 @@ def main():
                 DiscordThread = Process(target=Discord)
                 DiscordThread.start()
                 DiscordCycleCount = 0
+        
+        if not DiscordThread.is_alive():
+            print("++ Discord thread is not running, restarting it")
+            print("++ Closing the discord thread")
+            DiscordThread.close()
+            print("++ Sleeping for 3 seconds to allow the discord thread to close")
+            time.sleep(3)
+            print("++ Starting the discord thread again")
+            DiscordThread = Process(target=Discord)
+            DiscordThread.start()
 
         try:
             time.sleep(1)
