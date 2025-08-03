@@ -87,14 +87,15 @@ Hopefully that makes sense.
 |$deathcount|Scans the deathlog and tallies up the current deathcount for each slot|
 |$checkcount|Fetches the current Arch server's progress in simple txt format|
 |$checkgraph|Plots the current Arch progress in a picture|
-|$reloadbot|Forces the tracker client to reload|
-|$setenv \<key> \<value>|Allows you to set .env options via discord|
-||Current keys: ArchipelagoPort|
 
 |Debug Commands|Description|
 |---|---|
 |$iloveyou|We all need to hear this sometimes.|
 |$hello|The bot says hello!|
+|$reloadtracker|Forces the tracker client to reload|
+|$reloaddiscord|Forces the discord bot to reload|
+|$setenv \<key> \<value>|Allows you to set .env options via discord|
+||Current keys: ArchipelagoPort|
 |$ArchInfo|\[CONSOLE] General bot details for debugging .env tables^|
 
 **\[^] DebugMode only commands**
@@ -133,6 +134,8 @@ Hopefully that makes sense.
 |CollectMessages|Will relay collect messages|
 |CountdownMessages|Will relay server coutndown messages|
 |DeathlinkMessages|Will relay deathlink messages|
+|**Drawbridge Config**||
+|DiscordBridgeEnabled|\[Unfinished\]|
 |||
 |**Meta Config**||
 |FlavorDeathLink|Will change deathlink messages to have a little more personality$|
