@@ -1567,7 +1567,7 @@ def main():
             print("Seppuku Initiated - Goodbye Friend")
             exit(1)
 
-        if not tracker_client.socket_thread.is_alive() or not websocket_queue.empty():
+        if not DiscordJoinOnly and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty()):
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
                 print("!! clearing queue -- ", SQMessage)
