@@ -504,9 +504,10 @@ async def CheckArchHost():
                 print("Port Check Failed")
                 print(RoomData["last_port"])
                 print(ArchPort)
-                message = "Port Check Failed - Restart tracker process <@"+DiscordAlertUserID+">"
+                message = "Port Check Failed.  New port is " + str(RoomData["last_port"]) + "."
                 #await MainChannel.send(message)
                 await DebugChannel.send(message)
+                SetEnvVariable("ArchipelagoPort", str(RoomData["last_port"]))
         except Exception as e:
             WriteToErrorLog("CheckArchHost", "Error occurred while checking ArchHost: " + str(e))
             await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
