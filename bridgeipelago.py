@@ -1409,7 +1409,7 @@ def SetEnvVariable(key, value):
         elif key == "UniqueID":
             global UniqueID
             UniqueID = value
-        set_key(dotenv_path=EnvPath, key_to_set=key, value_to_set=value)
+        set_key(dotenv_path=EnvPath, key_to_set=key, value_to_set=value, quote_mode='auto')
 
         #We'll reconfirm and reload the data locations since we can change values. It's no harm to reapply them all for the heck of it.
         ConfirmDataLocations()
