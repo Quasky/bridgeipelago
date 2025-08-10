@@ -504,9 +504,10 @@ async def CheckArchHost():
                 print("Port Check Failed")
                 print(RoomData["last_port"])
                 print(ArchPort)
-                message = "Port Check Failed - Restart tracker process <@"+DiscordAlertUserID+">"
+                message = "Port Check Failed.  New port is " + str(RoomData["last_port"]) + "."
                 #await MainChannel.send(message)
                 await DebugChannel.send(message)
+                SetEnvVariable("ArchipelagoPort", str(RoomData["last_port"]))
         except Exception as e:
             WriteToErrorLog("CheckArchHost", "Error occurred while checking ArchHost: " + str(e))
             await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+DiscordAlertUserID+">")
@@ -1408,7 +1409,7 @@ def SetEnvVariable(key, value):
         elif key == "UniqueID":
             global UniqueID
             UniqueID = value
-        set_key(dotenv_path=EnvPath, key_to_set=key, value_to_set=value)
+        set_key(dotenv_path=EnvPath, key_to_set=key, value_to_set=value, quote_mode='auto')
 
         #We'll reconfirm and reload the data locations since we can change values. It's no harm to reapply them all for the heck of it.
         ConfirmDataLocations()
@@ -1566,7 +1567,7 @@ def main():
             print("Seppuku Initiated - Goodbye Friend")
             exit(1)
 
-        if not tracker_client.socket_thread.is_alive() or not websocket_queue.empty():
+        if not DiscordJoinOnly and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty()):
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
                 print("!! clearing queue -- ", SQMessage)
