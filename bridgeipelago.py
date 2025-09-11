@@ -52,6 +52,7 @@ DiscordDebugChannel = int(os.getenv('DiscordDebugChannel'))
 
 ArchHost = os.getenv('ArchipelagoServer')
 ArchPort = os.getenv('ArchipelagoPort')
+ArchPassword = os.getenv('ArchipelagoPassword')
 ArchipelagoBotSlot = os.getenv('ArchipelagoBotSlot')
 ArchTrackerURL = os.getenv('ArchipelagoTrackerURL')
 ArchServerURL = os.getenv('ArchipelagoServerURL')
@@ -96,6 +97,9 @@ ArchGameDump = ArchDataDirectory + 'ArchGameDump.json'
 ArchConnectionDump = ArchDataDirectory + 'ArchConnectionDump.json'
 ArchRoomData = ArchDataDirectory + 'ArchRoomData.json'
 
+if ArchPassword == None or ArchPassword == "<your_archipelago_password>":
+    ArchPassword = None
+
 if DebugMode == "true":
     logging.basicConfig(
         filename='bridge.log',
@@ -124,6 +128,7 @@ discordseppuku_queue = Queue()
 websocket_queue = Queue()
 lottery_queue = Queue()
 port_queue = Queue()
+password_queue = Queue()
 discordbridge_queue = Queue()
 
 if(DebugMode == "true"):
@@ -196,6 +201,7 @@ class TrackerClient:
         *,
         server_uri: str,
         port: str,
+        password: str,
         slot_name: str,
         on_death_link: callable = None,
         on_item_send: callable = None,
@@ -206,6 +212,7 @@ class TrackerClient:
     ) -> None:
         self.server_uri = server_uri
         self.port = port
+        self.password = password
         self.slot_name = slot_name
         self.on_death_link = on_death_link
         self.on_item_send = on_item_send
@@ -310,7 +317,7 @@ class TrackerClient:
         payload = {
             'cmd': 'Connect',
             'game': '',
-            'password': None,
+            'password': self.password,
             'name': self.slot_name,
             'version': self.version,
             'tags': list(self.tags),
@@ -350,6 +357,14 @@ class TrackerClient:
             except:
                 pass
             self.port = tempport
+        if not password_queue.empty():
+            while not password_queue.empty():
+                temppass = password_queue.get()
+            try:
+                clearqueueuue = self.ap_connection.recv(timeout=0.1)
+            except:
+                pass
+            self.password = temppass
         try:
             self.is_closed.clear()
             self.ap_connection = connect(
@@ -1393,13 +1408,17 @@ def SpecialFormat(text,color,format):
     return itext
 
 def SetEnvVariable(key, value):
-    if key not in ["ArchipelagoPort","ArchipelagoTrackerURL","ArchipelagoServerURL","UniqueID"]:
-        return "Invalid key. Only 'ArchipelagoPort', 'ArchipelagoTrackerURL', 'ArchipelagoServerURL', and 'UniqueID' can be set."
+    if key not in ["ArchipelagoPort","ArchipelagoPassword","ArchipelagoTrackerURL","ArchipelagoServerURL","UniqueID"]:
+        return "Invalid key. Only 'ArchipelagoPort', 'ArchipelagoPassword', 'ArchipelagoTrackerURL', 'ArchipelagoServerURL', and 'UniqueID' can be set."
     else:
         if key == "ArchipelagoPort":
             global ArchPort
             ArchPort = value
             port_queue.put(value)
+        elif key == "ArchipelagoPassword":
+            global ArchPassword
+            ArchPassword = value
+            password_queue.put(value)
         elif key == "ArchipelagoTrackerURL":
             global ArchTrackerURL
             ArchTrackerURL = value
@@ -1501,6 +1520,7 @@ if(DiscordJoinOnly == "false"):
     tracker_client = TrackerClient(
         server_uri=ArchHost,
         port=ArchPort,
+        password=ArchPassword,
         slot_name=ArchipelagoBotSlot,
         verbose_logging=WSdbug,
         on_chat_send=lambda args : chat_queue.put(args),
