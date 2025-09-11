@@ -83,7 +83,11 @@ Hopefully that makes sense.
 |---|---|
 |$register \<slot>|Adds the slot provided to the user's registration file
 |$clearreg|Clears the user's registration file|
-|$ketchmeup|DMs the user all checks in their ItemQueue file, used to catch you up on missed checks|
+|$ketchmeup \<filter>|DMs the user all checks in their ItemQueue file, used to catch you up on missed checks|
+||2 - Only Logical Progression Items|
+||1 - Logical + Useful items|
+||0 or empty - Logical + Useful + Normal items + Traps\*|
+||\*Traps will only be sent if the filter is 0 AND BotItemSpoilTraps is enabled|
 |$groupcheck \<slot>|DMs the user all checks in the slot's ItemQueue file, used to catch up on group games|
 |$hints|DMs the hinted items for a player's registered slots|
 |$deathcount|Scans the deathlog and tallies up the current deathcount for each slot|
