@@ -97,7 +97,7 @@ Hopefully that makes sense.
 |$reloadtracker|Forces the tracker client to reload|
 |$reloaddiscord|Forces the discord bot to reload|
 |$setenv \<key> \<value>|Allows you to set .env options via discord|
-||Current keys: ArchipelagoPort, ArchipelagoTrackerURL, ArchipelagoServerURL, UniqueID|
+||Current keys: ArchipelagoPort, ArchipelagoPassword, ArchipelagoTrackerURL, ArchipelagoServerURL, UniqueID|
 |$ArchInfo|\[CONSOLE] General bot details for debugging .env tables^|
 
 **\[^] DebugMode only commands**  
@@ -115,6 +115,7 @@ Hopefully that makes sense.
 |**Archipelago Config**||
 |ArchipelagoServer|The URL of the Archipelago server you'd like to connect to|
 |ArchipelagoPort|The port of the Archipelago server you'd like to connect to|
+|ArchipelagoPassword|The password of the Archipelago sroom you'd like to connect to|
 |ArchipelagoBotSlot|The name of the slot you'd like the bot to use when connecting to archipelago|
 |ArchipelagoTrackerURL|URL of the tracker you'd like to query|
 |ArchipelagoServerURL|URL of the server you'd like to query|
