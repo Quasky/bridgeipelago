@@ -154,6 +154,7 @@ Hopefully that makes sense.
 ||0.5 - 2/second|
 ||0.2 - 5/second|
 ||0.1 - 10/second|
+|SnoozeCompletedGames|Enables skipping posting items to discord FOR completed games|
 |JoinMessage|A custom join message (console only) for the bot|
 |DebugMode|Enables extra debug chat/bot options^|
 |SelfHostNoWeb|Disabled WebHost-specific functionality for self-hosted games with no WebHost module|

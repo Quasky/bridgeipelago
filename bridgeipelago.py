@@ -79,6 +79,7 @@ RegistrationDirectory = os.getcwd() + os.getenv('PlayerRegistrationDirectory') +
 ItemQueueDirectory = os.getcwd() + os.getenv('PlayerItemQueueDirectory') + UniqueID + '/'
 ArchDataDirectory = os.getcwd() + os.getenv('ArchipelagoDataDirectory') + UniqueID + '/'
 QueueOverclock = float(os.getenv('QueueOverclock'))
+SnoozeCompletedGames = os.getenv('SnoozeCompletedGames')
 JoinMessage = os.getenv('JoinMessage')
 DebugMode = os.getenv('DebugMode')
 DiscordJoinOnly = os.getenv('DiscordJoinOnly')
@@ -96,6 +97,7 @@ CheckPlotLocation = LoggingDirectory + 'CheckPlot.png'
 ArchGameDump = ArchDataDirectory + 'ArchGameDump.json'
 ArchConnectionDump = ArchDataDirectory + 'ArchConnectionDump.json'
 ArchRoomData = ArchDataDirectory + 'ArchRoomData.json'
+ArchStatus = ArchDataDirectory + 'ArchStatus.json'
 
 if ArchPassword == None or ArchPassword == "<your_archipelago_password>":
     ArchPassword = None
@@ -178,6 +180,9 @@ l.close()
 l = open(DeathTimecodeLocation, "a")
 l.close()
 
+l = open(ArchStatus, "a")
+l.close()
+
 # Load Meta Modules if they are enabled in the .env
 if EnableFlavorDeathlink == "true":
     from modules.DeathlinkFlavor import GetFlavorText
@@ -233,8 +238,6 @@ class TrackerClient:
 
             while not self.is_closed.is_set():
                 #=== Message Loop ===#
-
-
                 try:
                     RawMessage = self.ap_connection.recv(timeout=QueueOverclock)
                     for i in range(len(json.loads(RawMessage))):
@@ -264,6 +267,9 @@ class TrackerClient:
                                 if EnableServerChatMessages == "true" and self.on_chat_send:
                                      self.on_chat_send(args)
                             elif args.get('type') == 'Goal':
+                                print("writting to archstatus")
+                                print(args,"===============")
+                                WriteToArchStatus(args)
                                 if EnableGoalMessages == "true" and self.on_chat_send:
                                     self.on_chat_send(args)
                             elif args.get('type') == 'Release':
@@ -541,6 +547,7 @@ async def ProcessItemQueue():
             if query == " found their ":
                 game = str(LookupGame(itemmessage['data'][0]['text']))
                 name = str(LookupSlot(itemmessage['data'][0]['text']))
+                recipient = name
                 item = str(LookupItem(game,itemmessage['data'][2]['text']))
                 itemclass = str(itemmessage['data'][2]['flags'])
                 location = str(LookupLocation(game,itemmessage['data'][4]['text']))
@@ -591,7 +598,10 @@ async def ProcessItemQueue():
 
             message = "```ansi\n" + message + "```"
 
-            if int(itemclass) == 4 and SpoilTraps == 'true':
+            # If this item is for a player who's snoozed, we skip sending the message entirely
+            if CheckSnoozeStatus(recipient):
+                await CancelProcess()
+            elif int(itemclass) == 4 and SpoilTraps == 'true':
                 await SendMainChannelMessage(message)
             elif int(itemclass) != 4 and ItemFilter(int(itemclass)):
                 await SendMainChannelMessage(message)
@@ -1260,6 +1270,18 @@ def WriteRoomInfo(data):
     with open(ArchRoomData, 'w') as f:
         json.dump(data, f)
 
+def WriteToArchStatus(data):
+        #Try and read the data, if it doesn't work, make it blank.
+        try:
+            status_data = json.load(open(ArchStatus, 'r'))
+        except:
+            status_data = {}
+            json.dump(status_data, open(ArchStatus, 'w'))
+
+        status_data = json.load(open(ArchStatus, 'r'))
+        status_data[LookupSlot(str(data["slot"]))] = "Goal"
+        json.dump(status_data, open(ArchStatus, 'w'))
+
 def CheckDatapackage():
     if os.path.exists(ArchGameDump):
         try:
@@ -1314,6 +1336,16 @@ def LookupGame(slot):
         if key == slot:
             return str(ArchConnectionJSON['slot_info'][key]['game'])
     return str("NULL")
+
+def CheckSnoozeStatus(slot):
+    if SnoozeCompletedGames == "true":
+        TempStatusJSON = json.load(open(ArchStatus, 'r'))
+        for key in TempStatusJSON:
+            if key == slot:
+                return True
+        return False
+    else:
+        return False
 
 def ItemFilter(itmclass):
     #Item Classes are stored in a bit array
@@ -1457,6 +1489,7 @@ def ConfirmDataLocations():
     global ArchGameDump
     global ArchConnectionDump
     global ArchRoomData
+    global ArchStatus
     LoggingDirectory = os.getcwd() + os.getenv('LoggingDirectory') + UniqueID + '/'
     RegistrationDirectory = os.getcwd() + os.getenv('PlayerRegistrationDirectory') + UniqueID + '/'
     ItemQueueDirectory = os.getcwd() + os.getenv('PlayerItemQueueDirectory') + UniqueID + '/'
@@ -1473,6 +1506,7 @@ def ConfirmDataLocations():
     ArchGameDump = ArchDataDirectory + 'ArchGameDump.json'
     ArchConnectionDump = ArchDataDirectory + 'ArchConnectionDump.json'
     ArchRoomData = ArchDataDirectory + 'ArchRoomData.json'
+    ArchStatus = ArchDataDirectory + 'ArchStatus.json'
 
     #We'll confirm the files/directories exist fo we can write to them. 
     if not os.path.exists(ArchDataDirectory):
