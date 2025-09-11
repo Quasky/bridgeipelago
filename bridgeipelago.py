@@ -418,7 +418,7 @@ async def on_message(message):
     # When the user asks, catch them up on checks they're registered for
     ## Yoinks their registration file, scans through it, then find the related ItemQueue file to scan through 
     if message.content.startswith('$ketchmeup'):
-        await Command_KetchMeUp(message.author)
+        await Command_KetchMeUp(message.author, message.content)
     
     # When the user asks, catch them up on the specified game
     ## Yoinks the specified ItemQueue file, scans through it, then sends the contents to the user
@@ -553,7 +553,7 @@ async def ProcessItemQueue():
                 message = "" + name + " sent " + iitem + " to " + recipient + "\nCheck: " + location
             
 
-                ItemCheckLogMessage = recipient + "||" + item + "||" + name + "||" + location + "\n"
+                ItemCheckLogMessage = recipient + "||" + item + "||" + name + "||" + location + "||" + itemclass + "\n"
                 BotLogMessage = timecode + "||" + ItemCheckLogMessage
                 o = open(OutputFileLocation, "a")
                 o.write(BotLogMessage)
@@ -578,7 +578,7 @@ async def ProcessItemQueue():
 
             if int(itemclass) == 4 and SpoilTraps == 'true':
                 await SendMainChannelMessage(message)
-            elif int(itemclass) != 4 and ItemFilter(int(itemclass)):
+            elif int(itemclass) != 4 and ItemFilter(int(itemclass),ItemFilterLevel):
                 await SendMainChannelMessage(message)
             else:
                 #In Theory, this should only be called when the two above conditions are not met
@@ -640,10 +640,10 @@ async def first_command(interaction):
     description="Ketches the user up with missed items",
     guild=discord.Object(id=DiscordGuildID)
 )
-async def first_command(interaction):
+async def first_command(interaction,filter:str):
     await interaction.user.create_dm()
     UserDM = interaction.user
-    await Command_KetchMeUp(UserDM)
+    await Command_KetchMeUp(UserDM, interaction.message.content)
     await interaction.response.send_message(content="Sending your missed items... Please Hold.",ephemeral=True)
 
 @tree.command(name="groupcheck",
@@ -750,8 +750,19 @@ async def Command_ClearReg(Sender:str):
         print(e)
         await DebugChannel.send("ERROR IN CLEARREG <@"+DiscordAlertUserID+">")
 
-async def Command_KetchMeUp(User):
+async def Command_KetchMeUp(User, message_filter):
     try:
+        message_filter = message_filter.replace("$ketchmeup","")
+        message_filter = message_filter.replace("/ketchmeup","")
+        message_filter = message_filter.strip()
+
+        if message_filter == "" or message_filter == None:
+            message_filter = 0
+        try:
+            message_filter = int(message_filter)
+        except:
+            message_filter = 0
+
         RegistrationFile = RegistrationDirectory + str(User) + ".json"
         if not os.path.isfile(RegistrationFile):
             await User.send("You've not registered for a slot : (")
@@ -798,8 +809,13 @@ async def Command_KetchMeUp(User):
                     Item = line.split("||")[1].strip()
                     Sender = line.split("||")[2].strip()
                     Location = line.split("||")[3].strip()
-                    ketchupmessage = ketchupmessage + You.ljust(YouWidth) + " || " + Item.ljust(ItemWidth) + " || " + Sender.ljust(SenderWidth) + " || " + Location + "\n"
-                    
+                    Class = line.split("||")[4].strip()
+
+                    print(Class)
+                    print(message_filter)
+                    if ItemFilter(int(Class),int(message_filter)):
+                        ketchupmessage = ketchupmessage + You.ljust(YouWidth) + " || " + Item.ljust(ItemWidth) + " || " + Sender.ljust(SenderWidth) + " || " + Location + "\n"
+
                     if len(ketchupmessage) > 1500:
                         ketchupmessage = ketchupmessage + "```"
                         await User.send(ketchupmessage)
@@ -1300,7 +1316,7 @@ def LookupGame(slot):
             return str(ArchConnectionJSON['slot_info'][key]['game'])
     return str("NULL")
 
-def ItemFilter(itmclass):
+def ItemFilter(itmclass,itmfilterlevel):
     #Item Classes are stored in a bit array
     #0bCBA Where:
     #A is if the item is progression / logical
@@ -1314,19 +1330,19 @@ def ItemFilter(itmclass):
     #
     # (Bits are checked from right to left, so array 0b43210)
 
-    if ItemFilterLevel == 2:
+    if itmfilterlevel == 2:
         if(itmclass & ( 1 << 0 )):
             return True
         else:
             return False
-    elif ItemFilterLevel == 1:
+    elif itmfilterlevel == 1:
         if(itmclass & ( 1 << 0 )):
             return True
         elif(itmclass & ( 1 << 1 )):
             return True
         else:
             return False
-    elif ItemFilterLevel == 0:
+    elif itmfilterlevel == 0:
         return True
     else:
         #If the filter is misconfigured, just send the item. It's the user's fault. :)
