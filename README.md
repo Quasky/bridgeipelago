@@ -146,6 +146,7 @@ Hopefully that makes sense.
 |||
 |**Meta Config**||
 |FlavorDeathLink|Will change deathlink messages to have a little more personality$|
+|AdvancedDeathLink|Will change deathlink messages to throw that shade allowing you to have each player have their own deathlink messages in their own respective file|
 |DeathLinkLottery|Unused... for now >:) |
 |||
 |**Advanced Config**||

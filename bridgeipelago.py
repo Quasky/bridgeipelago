@@ -72,6 +72,7 @@ EnableDeathlinkMessages = os.getenv('DeathlinkMessages')
 EnableDiscordBridge = os.getenv('DiscordBridgeEnabled')
 
 EnableFlavorDeathlink = os.getenv('FlavorDeathlink')
+EnableadvancedDeathlink = os.getenv('advancedDeathlink')
 EnableDeathlinkLottery = os.getenv('DeathlinkLottery')
 
 LoggingDirectory = os.getcwd() + os.getenv('LoggingDirectory') + UniqueID + '/'
@@ -160,6 +161,9 @@ DiscordGuildID = 1171964435741544498
 # Load Meta Modules if they are enabled in the .env
 if EnableFlavorDeathlink == "true":
     from modules.DeathlinkFlavor import GetFlavorText
+if EnableadvancedDeathlink == "true":
+    from modules.advancedDeathlinkFlavor import GetFlavorText
+
 
 ## ARCHIPELAGO TRACKER CLIENT + CORE FUNCTION
 class TrackerClient:
@@ -602,7 +606,7 @@ async def ProcessDeathQueue():
         o.write(DeathLogMessage)
         o.close()
         if EnableDeathlinkMessages == "true":
-            if EnableFlavorDeathlink == "true":
+            if EnableFlavorDeathlink or EnableadvancedDeathlink == "true":
                 FlavorMessage = "Deathlink: " + GetFlavorText(str(chatmessage['data']['source']))
                 await SendMainChannelMessage(FlavorMessage)
             else:
