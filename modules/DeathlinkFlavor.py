@@ -7,7 +7,6 @@ _flavor_cache = {}
 
 
 def load_deathlink():
-    """Load deathlink.txt into the cache (must exist)."""
     file_path = os.path.join(FLAVOR, f"{DEATHLINK_FILE}.txt")
 
     if not os.path.exists(file_path):
@@ -19,7 +18,6 @@ def load_deathlink():
 
 
 def GetFlavorText(PlayerName):
-    """Always pull from deathlink file only."""
     if DEATHLINK_FILE not in _flavor_cache:
         load_deathlink()
 
