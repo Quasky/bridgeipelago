@@ -49,6 +49,7 @@ DiscordToken = os.getenv('DiscordToken')
 DiscordBroadcastChannel = int(os.getenv('DiscordBroadcastChannel'))
 DiscordAlertUserID = os.getenv('DiscordAlertUserID')
 DiscordDebugChannel = int(os.getenv('DiscordDebugChannel'))
+DiscordChatChannel = int(os.getenv('DiscordChatChannel') or DiscordBroadcastChannel)
 
 ArchHost = os.getenv('ArchipelagoServer')
 ArchPort = os.getenv('ArchipelagoPort')
@@ -372,6 +373,8 @@ async def on_ready():
     global DebugChannel
     DebugChannel = DiscordClient.get_channel(DiscordDebugChannel)
     await DebugChannel.send('Bot connected. Debug control - Online.')
+    global ChatChannel
+    ChatChannel = DiscordClient.get_channel(DiscordChatChannel)
 
     # We wont sync the command tree for now, need to roll out central control first.
     #await tree.sync(guild=discord.Object(id=DiscordGuildID))
@@ -618,7 +621,7 @@ async def ProcessChatQueue():
         chatmessage = chat_queue.get()
         if not (chatmessage['data'][0]['text']).startswith(ArchipelagoBotSlot):
             if not chatmessage['message'].lower().startswith("!"):
-                await SendMainChannelMessage(chatmessage['data'][0]['text'])
+                await SendChatChannelMessage(chatmessage['data'][0]['text'])
 
 @tree.command(name="register",
     description="Registers you for AP slot",
@@ -680,6 +683,9 @@ async def first_command(interaction):
 
 async def SendMainChannelMessage(message):
     await MainChannel.send(message)
+
+async def SendChatChannelMessage(message):
+    await ChatChannel.send(message)
 
 async def SendDebugChannelMessage(message):
     await DebugChannel.send(message)
