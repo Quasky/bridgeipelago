@@ -405,81 +405,101 @@ async def on_ready():
 
 @DiscordClient.event
 async def on_message(message):
-    if message.author == DiscordClient.user:
-        return
-    
-    if message.channel.id != MainChannel.id:
-        return
-    
-    # Registers user for a alot in Archipelago
-    if message.content.startswith('$register'):
-        ArchSlot = message.content
-        ArchSlot = ArchSlot.replace("$register ","")
-        Status = await Command_Register(str(message.author),ArchSlot)
-        await SendMainChannelMessage(Status)
+    try:
+        if message.author == DiscordClient.user:
+            return
 
-    # Clears registration file for user
-    if message.content.startswith('$clearreg'):
-        Status = await Command_ClearReg(str(message.author))
-        await SendMainChannelMessage(Status)
+        if not (message.channel.id == MainChannel.id or message.channel.id == DebugChannel.id):
+            return
+        
+        # Registers user for a alot in Archipelago
+        if message.content.startswith('$register'):
+            ArchSlot = message.content
+            ArchSlot = ArchSlot.replace("$register ","")
+            Status = await Command_Register(str(message.author),ArchSlot)
+            await SendMainChannelMessage(Status)
 
-    if message.content.startswith('$listreg'):
-        await Command_ListRegistrations(message.author)
+        # Clears registration file for user
+        if message.content.startswith('$clearreg'):
+            Status = await Command_ClearReg(str(message.author))
+            await SendMainChannelMessage(Status)
 
-    # Opens a discord DM with the user, and fires off the Katchmeup process
-    # When the user asks, catch them up on checks they're registered for
-    ## Yoinks their registration file, scans through it, then find the related ItemQueue file to scan through 
-    if message.content.startswith('$ketchmeup'):
-        await Command_KetchMeUp(message.author, message.content)
-    
-    # When the user asks, catch them up on the specified game
-    ## Yoinks the specified ItemQueue file, scans through it, then sends the contents to the user
-    ## Does NOT delete the file, as it's assumed the other users will want to read the file as well
-    if message.content.startswith('$groupcheck'):
-        game = (message.content).split('$groupcheck ')
-        await Command_GroupCheck(message.author, game[1])
-    
-    if message.content.startswith('$hints'):
-        await Command_Hints(message.author)
-    
-    if message.content.startswith('$deathcount'):
-        await Command_DeathCount()
-    
-    if message.content.startswith('$checkcount'):
-        await Command_CheckCount()
-    
-    if message.content.startswith('$checkgraph'):
-        await Command_CheckGraph()
-    
-    if message.content.startswith('$iloveyou'):
-        await Command_ILoveYou(message)
+        if message.content.startswith('$listreg'):
+            await Command_ListRegistrations(message.author)
 
-    if message.content.startswith('$hello'):
-        await Command_Hello(message)
-    
-    if message.content.startswith('$archinfo'):
-        await Command_ArchInfo(message)
+        # Opens a discord DM with the user, and fires off the Katchmeup process
+        # When the user asks, catch them up on checks they're registered for
+        ## Yoinks their registration file, scans through it, then find the related ItemQueue file to scan through 
+        if message.content.startswith('$ketchmeup'):
+            await Command_KetchMeUp(message.author, message.content)
+        
+        # When the user asks, catch them up on the specified game
+        ## Yoinks the specified ItemQueue file, scans through it, then sends the contents to the user
+        ## Does NOT delete the file, as it's assumed the other users will want to read the file as well
+        if message.content.startswith('$groupcheck'):
+            game = (message.content).split('$groupcheck ')
+            await Command_GroupCheck(message.author, game[1])
+        
+        if message.content.startswith('$hints'):
+            await Command_Hints(message.author)
+        
+        if message.content.startswith('$deathcount'):
+            await Command_DeathCount()
+        
+        if message.content.startswith('$checkcount'):
+            await Command_CheckCount()
+        
+        if message.content.startswith('$checkgraph'):
+            await Command_CheckGraph()
+        
+        if message.content.startswith('$iloveyou'):
+            await Command_ILoveYou(message)
 
-    if message.content.startswith('$setenv'):
-        pair = ((message.content).split('$setenv '))[1].split(' ')
-        rtrnmessage = SetEnvVariable(pair[0], pair[1])
-        await SendMainChannelMessage(rtrnmessage)
+        if message.content.startswith('$hello'):
+            await Command_Hello(message)
+        
+        if message.content.startswith('$archinfo'):
+            await Command_ArchInfo(message)
 
-    if message.content.startswith('$reloadtracker'):
-        ReloadBot()
-        await SendMainChannelMessage("Reloading tracker... Please wait about 5-10 seconds.")
-    
-    if message.content.startswith('$reloaddiscord'):
-        discordseppuku_queue.put("Reloading Discord bot...")
-        await SendMainChannelMessage("Reloading Discord bot... Please wait.")
+        if message.content.startswith('$setenv'):
+            try:
+                pair = ((message.content).split('$setenv '))[1].split(' ')
+                rtrnmessage = SetEnvVariable(pair[0], pair[1])
+            except Exception as e:
+                rtrnmessage = "Error setting env variable: " + str(e) +"\n-Check the acceptable keys for $setenv."
+            if message.channel.id == MainChannel.id:
+                await SendMainChannelMessage(rtrnmessage)
+            else:
+                await SendDebugChannelMessage(rtrnmessage)
 
-    if message.content.startswith('$reloaddata'):
-        ReloadJSONPackages()
-        await SendMainChannelMessage("Reloading datavars... Please wait 2-3 seconds.")
+        if message.content.startswith('$reloadtracker'):
+            ReloadBot()
+            if message.channel.id == MainChannel.id:
+                await SendMainChannelMessage("Reloading tracker... Please wait about 5-10 seconds.")
+            else:
+                await SendDebugChannelMessage("Reloading tracker... Please wait about 5-10 seconds.")
 
-    if not message.content.startswith('$') and EnableDiscordBridge == "true":
-        relayed_message = "(Discord) " + str(message.author) + " - " + str(message.content)
-        discordbridge_queue.put(relayed_message)
+        if message.content.startswith('$reloaddiscord'):
+            discordseppuku_queue.put("Reloading Discord bot...")
+            if message.channel.id == MainChannel.id:
+                await SendMainChannelMessage("Reloading Discord bot... Please wait.")
+            else:
+                await SendDebugChannelMessage("Reloading Discord bot... Please wait.")
+
+        if message.content.startswith('$reloaddata'):
+            ReloadJSONPackages()
+            if message.channel.id == MainChannel.id:
+                await SendMainChannelMessage("Reloading datavars... Please wait 2-3 seconds.")
+            else:
+                await SendDebugChannelMessage("Reloading datavars... Please wait 2-3 seconds.")
+
+        if not message.content.startswith('$') and EnableDiscordBridge == "true":
+            relayed_message = "(Discord) " + str(message.author) + " - " + str(message.content)
+            discordbridge_queue.put(relayed_message)
+    except Exception as e:
+        WriteToErrorLog("DiscordOnMessage", "Error in on_message event: " + str(e))
+        print(e)
+        await DebugChannel.send("ERROR IN ON_MESSAGE <@"+DiscordAlertUserID+">")
 
 @tasks.loop(seconds=1)
 async def CheckCommandQueue():
