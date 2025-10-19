@@ -115,6 +115,7 @@ ArchGameDump = ArchDataDirectory + 'ArchGameDump.json'
 ArchConnectionDump = ArchDataDirectory + 'ArchConnectionDump.json'
 ArchRoomData = ArchDataDirectory + 'ArchRoomData.json'
 ArchStatus = ArchDataDirectory + 'ArchStatus.json'
+SnoozeConfig = ArchDataDirectory + 'SnoozeConfig.json'
 
 if ArchPassword == None or ArchPassword == "<your_archipelago_password>":
     ArchPassword = None
@@ -476,6 +477,26 @@ async def on_message(message):
     if message.content.startswith('$reloaddata'):
         ReloadJSONPackages()
         await SendMainChannelMessage("Reloading datavars... Please wait 2-3 seconds.")
+
+    if message.content.startswith('$snoozemod'):
+        print("Evaluating snoozemod")
+        print(message.content)
+        try:
+            splitmessage = ((message.content).split('$snoozemod '))[1].split(' ',3)
+            print(splitmessage)
+            SnoozeCommand = splitmessage[0]
+            SnoozeTarget = splitmessage[1]
+            SnoozeSlot = splitmessage[2]
+            SnoozeItem = splitmessage[3]
+            print(SnoozeCommand,"--",SnoozeTarget,"--",SnoozeSlot,"--",SnoozeItem)
+            rtrnmessage = SnoozeMod(SnoozeCommand, SnoozeTarget, SnoozeSlot, SnoozeItem)
+        except Exception as e:
+            rtrnmessage = "Error in snoozemod command.\n-Check your syntax and try again."
+            print(e)
+        if message.channel.id == MainChannel.id:
+            await SendMainChannelMessage(rtrnmessage)
+        else:
+            await SendDebugChannelMessage(rtrnmessage)
 
     if not message.content.startswith('$') and EnableDiscordBridge == "true":
         relayed_message = "(Discord) " + str(message.author) + " - " + str(message.content)
@@ -1330,6 +1351,9 @@ def ConfirmSpecialFiles():
     if not os.path.exists(ArchStatus):
         json.dump({}, open(ArchStatus, "w"))
 
+    if not os.path.exists(SnoozeConfig):
+        json.dump({"games":{"Bridgeipelago":{}}, "items":{"Bridgeipelago":{}}}, open(SnoozeConfig, "w"))
+
 def WriteDataPackage(data):
     with open(ArchGameDump, 'w') as f:
         json.dump(data['data']['games'], f)
@@ -1428,6 +1452,31 @@ def CheckSnoozeStatus(slot):
         print("Error checking Snooze for: " + slot + " - " + str(e))
         return False
 
+def SnoozeMod(command,cat,slot,thing):
+    command = command.lower()
+    cat = cat.lower()
+    slot = slot.lower()
+    thing = thing.lower()
+
+    if command not in ["add","remove"]:
+        return "Invalid command. Only `add` and `remove` are supported."
+    if cat not in ["games","items"]:
+        return "Invalid category. Only `games` and `items` can be added to the snooze list."
+
+    if command == "add":
+        TempSnoozeJSON = json.load(open(SnoozeConfig, 'r'))
+        TempSnoozeJSON[cat][slot] = TempSnoozeJSON[cat].get(slot, [])
+        TempSnoozeJSON[cat][slot].append(thing)
+        json.dump(TempSnoozeJSON, open(SnoozeConfig, 'w'))
+        return "Added `" + thing + "` to `" + slot + "`'s snooze `" + cat + "` list."
+    elif command == "remove":
+        TempSnoozeJSON = json.load(open(SnoozeConfig, 'r'))
+        if thing not in TempSnoozeJSON[cat][slot]:
+            return "`" + thing + "` is not in `" + slot + "`'s snooze `" + cat + "` list."
+        TempSnoozeJSON[cat][slot].remove(thing)
+        json.dump(TempSnoozeJSON, open(SnoozeConfig, 'w'))
+        return "Removed `" + thing + "` from `" + slot + "`'s snooze `" + cat + "` list."
+    return "Unknown command? I think? I have no idea how you got here."
 
 def ItemFilter(itmclass,itmfilterlevel):
     #Item Classes are stored in a bit array
