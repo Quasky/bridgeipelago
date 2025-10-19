@@ -259,8 +259,6 @@ class TrackerClient:
                                 if EnableServerChatMessages == "true" and self.on_chat_send:
                                      self.on_chat_send(args)
                             elif args.get('type') == 'Goal':
-                                print("writting to archstatus")
-                                print(args,"===============")
                                 WriteToArchStatus(args)
                                 if EnableGoalMessages == "true" and self.on_chat_send:
                                     self.on_chat_send(args)
