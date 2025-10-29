@@ -390,24 +390,24 @@ async def on_ready():
     print("++ Async bot started -", DiscordClient.user)
 
 @DiscordClient.event
-async def on_message(message):
+async def on_message(message: discord.Message) -> None:
     if message.author == DiscordClient.user:
         return
-    
-    if message.channel.id != MainChannel.id:
+
+    if message.channel.id not in [MainChannel.id, ChatChannel.id, DebugChannel.id]:
         return
-    
+
     # Registers user for a alot in Archipelago
     if message.content.startswith('$register'):
         ArchSlot = message.content
         ArchSlot = ArchSlot.replace("$register ","")
         Status = await Command_Register(str(message.author),ArchSlot)
-        await SendMainChannelMessage(Status)
+        await message.reply(Status)
 
     # Clears registration file for user
     if message.content.startswith('$clearreg'):
         Status = await Command_ClearReg(str(message.author))
-        await SendMainChannelMessage(Status)
+        await message.reply(Status)
 
     if message.content.startswith('$listreg'):
         await Command_ListRegistrations(message.author)
@@ -424,44 +424,45 @@ async def on_message(message):
     if message.content.startswith('$groupcheck'):
         game = (message.content).split('$groupcheck ')
         await Command_GroupCheck(message.author, game[1])
-    
+
     if message.content.startswith('$hints'):
-        await Command_Hints(message.author)
-    
+        await Command_Hints(message)
+
     if message.content.startswith('$deathcount'):
-        await Command_DeathCount()
-    
+        await Command_DeathCount(message)
+
     if message.content.startswith('$checkcount'):
-        await Command_CheckCount()
-    
+        await Command_CheckCount(message)
+
     if message.content.startswith('$checkgraph'):
-        await Command_CheckGraph()
-    
+        await Command_CheckGraph(message)
+
     if message.content.startswith('$iloveyou'):
         await Command_ILoveYou(message)
 
     if message.content.startswith('$hello'):
         await Command_Hello(message)
     
+
     if message.content.startswith('$archinfo'):
         await Command_ArchInfo(message)
 
     if message.content.startswith('$setenv'):
         pair = ((message.content).split('$setenv '))[1].split(' ')
         rtrnmessage = SetEnvVariable(pair[0], pair[1])
-        await SendMainChannelMessage(rtrnmessage)
+        await message.reply(rtrnmessage)
 
     if message.content.startswith('$reloadtracker'):
         ReloadBot()
-        await SendMainChannelMessage("Reloading tracker... Please wait about 5-10 seconds.")
-    
+        await message.reply("Reloading tracker... Please wait about 5-10 seconds.")
+
     if message.content.startswith('$reloaddiscord'):
         discordseppuku_queue.put("Reloading Discord bot...")
-        await SendMainChannelMessage("Reloading Discord bot... Please wait.")
+        await message.reply("Reloading Discord bot... Please wait.")
 
     if message.content.startswith('$reloaddata'):
         ReloadJSONPackages()
-        await SendMainChannelMessage("Reloading datavars... Please wait 2-3 seconds.")
+        await message.reply("Reloading datavars... Please wait 2-3 seconds.")
 
     if not message.content.startswith('$') and EnableDiscordBridge == "true":
         relayed_message = "(Discord) " + str(message.author) + " - " + str(message.content)
@@ -479,7 +480,7 @@ async def CheckCommandQueue():
         ProcessItemQueue.stop()
         ProcessDeathQueue.stop()
         ProcessChatQueue.stop()
-        
+
         print("++ Closing Discord Client")
         exit()
 
@@ -859,12 +860,13 @@ async def Command_GroupCheck(DMauthor, game):
         print(e)
         await DebugChannel.send("ERROR IN GROUPCHECK <@"+DiscordAlertUserID+">")
 
-async def Command_Hints(player):
+async def Command_Hints(message: discord.Message) -> None:
     if SelfHostNoWeb == "true":
-        await MainChannel.send("This command is not available in self-hosted mode.")
+        await message.reply("This command is not available in self-hosted mode.")
         return
-    
+
     try:
+        player = message.author
         await player.create_dm()
 
         page = requests.get(ArchTrackerURL)
@@ -904,7 +906,7 @@ async def Command_Hints(player):
                     found = (row.find_all('td')[6].text).strip()
                     if(found == "✔"):
                         continue
-                    
+
                     finder = (row.find_all('td')[0].text).strip()
                     receiver = (row.find_all('td')[1].text).strip()
                     item = (row.find_all('td')[2].text).strip()
@@ -972,7 +974,7 @@ async def Command_Hints(player):
         print(e)
         await DebugChannel.send("ERROR IN HINTLIST <@"+DiscordAlertUserID+">")
 
-async def Command_DeathCount():
+async def Command_DeathCount(message: discord.Message) -> None:
     try:
         d = open(DeathFileLocation,"r")
         DeathLines = d.readlines()
@@ -980,9 +982,9 @@ async def Command_DeathCount():
         deathdict = {}
 
         if len(DeathLines) == 0:
-            await MainChannel.send("No deaths to report.")
+            await message.reply("No deaths to report.")
             return
-        
+
         for deathline in DeathLines:
             DeathUser = deathline.split("||")[6]
             DeathUser = DeathUser.split("\n")[0]
@@ -1002,7 +1004,7 @@ async def Command_DeathCount():
             deathcounts.append(int(deathdict[key]))
             message = message + "\n" + str(key) + ": " + str(deathdict[key])
         message = message + '```'
-        await MainChannel.send(message)
+        await message.reply(message)
 
         ### PLOTTING CODE ###
         with plt.xkcd():
@@ -1045,14 +1047,14 @@ async def Command_DeathCount():
 
         # Save image and send - any existing plot will be overwritten
         plt.savefig(DeathPlotLocation, bbox_inches="tight")
-        await MainChannel.send(file=discord.File(DeathPlotLocation))
+        await message.reply(file=discord.File(DeathPlotLocation))
     except Exception as e:
         WriteToErrorLog("Command_DeathCount", "Error in death count command: " + str(e))
         await DebugChannel.send("ERROR DEATHCOUNT <@"+DiscordAlertUserID+">")
 
-async def Command_CheckCount():
+async def Command_CheckCount(message: discord.Message) -> None:
     if SelfHostNoWeb == "true":
-        await MainChannel.send("This command is not available in self-hosted mode.")
+        await message.reply("This command is not available in self-hosted mode.")
         return
 
     try:
@@ -1079,7 +1081,7 @@ async def Command_CheckCount():
             game = (row.find_all('td')[2].text).strip()
             status = (row.find_all('td')[3].text).strip()
             checks = (row.find_all('td')[4].text).strip()
-            
+
             SlotArray.append(len(slot))
             GameArray.append(len(game))
             StatusArray.append(len(status))
@@ -1119,15 +1121,15 @@ async def Command_CheckCount():
 
         #Finishes the check message
         checkmessage = checkmessage + "```"
-        await MainChannel.send(checkmessage)
+        await message.reply(checkmessage)
     except Exception as e:
         WriteToErrorLog("Command_CheckCount", "Error in check count command: " + str(e))
         print(e)
         await DebugChannel.send("ERROR IN CHECKCOUNT <@"+DiscordAlertUserID+">")
 
-async def Command_CheckGraph():
+async def Command_CheckGraph(message: discord.Message) -> None:
     if SelfHostNoWeb == "true":
-        await MainChannel.send("This command is not available in self-hosted mode.")
+        await message.reply("This command is not available in self-hosted mode.")
         return
 
     try:
@@ -1198,19 +1200,19 @@ async def Command_CheckGraph():
 
         # Save image and send - any existing plot will be overwritten
         plt.savefig(CheckPlotLocation, bbox_inches="tight")
-        await MainChannel.send(file=discord.File(CheckPlotLocation))
+        await message.reply(file=discord.File(CheckPlotLocation))
     except Exception as e:
         WriteToErrorLog("Command_CheckGraph", "Error in check graph command: " + str(e))
         print(e)
         await DebugChannel.send("ERROR IN CHECKGRAPH <@"+DiscordAlertUserID+">")
 
-async def Command_ILoveYou(message):
-    await message.channel.send("Thank you.  You make a difference in this world. :)")
+async def Command_ILoveYou(message: discord.Message) -> None:
+    await message.reply("Thank you.  You make a difference in this world. :)")
 
-async def Command_Hello(message):
-    await message.channel.send('Hello!')
+async def Command_Hello(message: discord.Message) -> None:
+    await message.reply('Hello!')
 
-async def Command_ArchInfo(message):
+async def Command_ArchInfo(message: discord.Message) -> None:
     DebugMode = os.getenv('DebugMode')
     if(DebugMode == "true"):
         print("===ENV_VARIABLES===")
@@ -1252,7 +1254,7 @@ async def Command_ArchInfo(message):
         print(ArchRoomData)
         print("")
     else:
-        await message.channel.send("Debug Mode is disabled.")
+        await message.reply("Debug Mode is disabled.")
 
 ## HELPER FUNCTIONS
 def ConfirmSpecialFiles():
@@ -1515,8 +1517,8 @@ def ConfirmDataLocations():
     global ArchDataDirectory
     global ArchInfo
     global OutputFileLocation
-    global ErrorFileLocation 
-    global DeathFileLocation 
+    global ErrorFileLocation
+    global DeathFileLocation
     global DeathTimecodeLocation
     global DeathPlotLocation
     global CheckPlotLocation
