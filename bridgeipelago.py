@@ -69,6 +69,23 @@ EnableReleaseMessages = os.getenv('ReleaseMessages')
 EnableCollectMessages = os.getenv('CollectMessages')
 EnableCountdownMessages = os.getenv('CountdownMessages')
 EnableDeathlinkMessages = os.getenv('DeathlinkMessages')
+EnableAPClientHelp = os.getenv('APClientHelp')
+EnableAPClientLicense = os.getenv('APClientLicense')
+EnableAPClientCountdown = os.getenv('APClientCountdown')
+EnableAPClientOptions = os.getenv('APClientOptions')
+EnableAPClientAdmin = os.getenv('APClientAdmin')
+EnableAPClientPlayers = os.getenv('APClientPlayers')
+EnableAPClientStatus = os.getenv('APClientStatus')
+EnableAPClientRelease = os.getenv('APClientRelease')
+EnableAPClientCollect = os.getenv('APClientCollect')
+EnableAPClientRemaining = os.getenv('APClientRemaining')
+EnableAPClientMissing = os.getenv('APClientMissing')
+EnableAPClientChecked = os.getenv('APClientChecked')
+EnableAPClientAlias = os.getenv('APClientAlias')
+EnableAPClientGetItem = os.getenv('APClientGetItem')
+EnableAPClientHint = os.getenv('APClientHint')
+EnableAPClientHintLocation = os.getenv('APClientHintLocation')
+EnableAPClientVideo = os.getenv('APClientVideo')
 
 EnableDiscordBridge = os.getenv('DiscordBridgeEnabled')
 
@@ -623,7 +640,44 @@ async def ProcessChatQueue():
         if not (chatmessage['data'][0]['text']).startswith(ArchipelagoBotSlot):
             if not chatmessage['message'].lower().startswith("!"):
                 await SendChatChannelMessage(chatmessage['data'][0]['text'])
-
+            else:
+                if EnableAPClientHelp == "true" and chatmessage['message'].lower().startswith("!help"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientLicense == "true" and chatmessage['message'].lower().startswith("!license"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientCountdown == "true" and chatmessage['message'].lower().startswith("!countdown"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientOptions == "true" and chatmessage['message'].lower().startswith("!options"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientAdmin == "true" and chatmessage['message'].lower().startswith("!admin"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientPlayers == "true" and chatmessage['message'].lower().startswith("!players"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientStatus == "true" and chatmessage['message'].lower().startswith("!status"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientRelease == "true" and chatmessage['message'].lower().startswith("!release"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientCollect == "true" and chatmessage['message'].lower().startswith("!collect"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientRemaining == "true" and chatmessage['message'].lower().startswith("!remaining"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientMissing == "true" and chatmessage['message'].lower().startswith("!missing"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientChecked == "true" and chatmessage['message'].lower().startswith("!checked"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientAlias == "true" and chatmessage['message'].lower().startswith("!alias"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientGetItem == "true" and chatmessage['message'].lower().startswith("!getitem"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientHint == "true" and chatmessage['message'].lower().startswith("!hint"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientHintLocation == "true" and chatmessage['message'].lower().startswith("!hint_location"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                elif EnableAPClientVideo == "true" and chatmessage['message'].lower().startswith("!video"):
+                    await SendChatChannelMessage(chatmessage['data'][0]['text'])
+                else:
+                    await CancelProcess()
+                    
 @tree.command(name="register",
     description="Registers you for AP slot",
     guild=discord.Object(id=DiscordGuildID)

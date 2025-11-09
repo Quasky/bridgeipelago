@@ -53,34 +53,37 @@ Right-Click the channels and "Copy Channel ID", and hold them for now!
 Next, right-click your name and "Copy User ID", copy it down.
 
 ## Step 4) Bridgeipelago Setup
-1. Download Bridgeipelago  
-   - Stable:
-     - [Latest stable release](https://github.com/Quasky/bridgeipelago/releases/latest)
-   - Unstable (hopefully not):
-     - [All releases (Stable and Pre-Release)](https://github.com/Quasky/bridgeipelago/releases)
-     - Or clone the main repo for a crazy expierience `https://github.com/Quasky/bridgeipelago.git`
-1. Copy .env.template to .env
+- Core
+  1. Download Bridgeipelago  
+     - Stable:
+       - [Latest stable release](https://github.com/Quasky/bridgeipelago/releases/latest)
+     - Unstable (hopefully not):
+       - [All releases (Stable and Pre-Release)](https://github.com/Quasky/bridgeipelago/releases)
+       - Or clone the main repo for a crazy expierience `https://github.com/Quasky/bridgeipelago.git`
+  1. Copy .env.template to .env
 - Discord Config
-1. Fill out the 'DiscordToken' with your discord app/bot's token
-1. Fill out 'DiscordBroadcastChannel' with the channel ID that you'd like the bot to post AP info in
-1. Fill out 'DiscordAlertUserID' with your User ID. (This can also be a group/role in discord)
-1. Fill out 'DiscordDebugChannel' with the channel ID of the debug channel
+  1. Fill out the 'DiscordToken' with your discord app/bot's token
+  1. Fill out 'DiscordBroadcastChannel' with the channel ID that you'd like the bot to post AP info in
+  1. Fill out 'DiscordAlertUserID' with your User ID. (This can also be a group/role in discord)
+  1. Fill out 'DiscordDebugChannel' with the channel ID of the debug channel
 - Archipelago Config
-1. Fill out 'ArchipelagoServer' if you're self-hosting the Archipelago Server
-1. Fill out 'ArchipelagoPort' with the port number you've been assigned
-1. Fill out 'ArchipelagoBotSlot' with the slot name of the bot (Not needed if you used the included yaml)
-1. Fill out 'ArchipelagoTrackerURL' with the Tracker room URL
-1. Fill out 'ArchipelagoServerURL' with the room URL
-1. Fill out 'UniqueID' with the RoomID/seed/an arbitrary value (see [UniqueID](#UniqueID) for detailed useage)
+  1. Fill out 'ArchipelagoServer' if you're self-hosting the Archipelago Server
+  1. Fill out 'ArchipelagoPort' with the port number you've been assigned
+  1. Fill out 'ArchipelagoBotSlot' with the slot name of the bot (Not needed if you used the included yaml)
+  1. Fill out 'ArchipelagoTrackerURL' with the Tracker room URL
+  1. Fill out 'ArchipelagoServerURL' with the room URL
+  1. Fill out 'UniqueID' with the RoomID/seed/an arbitrary value (see [UniqueID](#UniqueID) for detailed useage)
 - Item Filter Config
-1. Set 'BotItemSpoilTraps' to 'true' if you'd like to have traps spoiled, or change to 'false' to hide traps
-1. Set 'BotItemFilterLevel' to the level you'd like (0, 1, 2)
+  1. Set 'BotItemSpoilTraps' to 'true' if you'd like to have traps spoiled, or change to 'false' to hide traps
+  1. Set 'BotItemFilterLevel' to the level you'd like (0, 1, 2)
 - Relay Config
-1. Set desired AP to Discord relay options.
+  1. Set desired AP to Discord relay options.
+- ! Command Config
+  1. Set desired !command relay options.
 - Drawbridge Config
-1. Set 'DiscordBridgeEnabled' to 'true' if you'd like chat from discord bridged to AP.
+  1. Set 'DiscordBridgeEnabled' to 'true' if you'd like chat from discord bridged to AP.
 - Meta Config
-1. Set 'FlavorDeathLink' to 'true' if you'd like custom flavored deathlink messages.
+  1. Set 'FlavorDeathLink' to 'true' if you'd like custom flavored deathlink messages.
 
 You're free to leave the Advanced Config section as-is unless you know what you're doing.  
 Detailed references on the .env can be found on the main [Readme](/README.md)
