@@ -434,7 +434,8 @@ class HintClient:
                             self.process_hint()
                         elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
                             print("HintClient CONNECTION_REFUSED by server - check your slot name / port / whatever, and try again.")
-                            chat_queue.put(args)
+                            CustomObject = {"data": [{"text": "HintClient: ERROR - Connection Refused by server. Check your slot name / port / whatever, and try again."}], "type":"ERROR" }
+                            chat_queue.put(CustomObject)
                         elif cmd == self.MessageCommand.PRINT_JSON.value:
                             if args.get('type') == 'Hint':
                                 chat_queue.put(args)
@@ -785,7 +786,9 @@ async def ProcessChatQueue():
     else:
         chatmessage = chat_queue.get()
         if not (chatmessage['data'][0]['text']).startswith(ArchipelagoBotSlot):
-            if chatmessage['type'] == "Hint":
+            if chatmessage['type'] == "ERROR":
+                await SendMainChannelMessage(chatmessage['data'][0]['text'])
+            elif chatmessage['type'] == "Hint":
                 # I'm leaving these print()s in untill the feature is tested more. Pay no attention to the man behind the curtin.
                 #print("Hint received in chat queue.")
                 
