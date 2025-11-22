@@ -5,7 +5,7 @@
 # | |_/ /| |   | || (_| || (_| ||  __/| || |_) ||  __/| || (_| || (_| || (_) |
 # \____/ |_|   |_| \__,_| \__, | \___||_|| .__/  \___||_| \__,_| \__, | \___/ 
 #                          __/ |         | |                      __/ |       
-#                         |___/          |_|                     |___/  v2.0.0
+#                         |___/          |_|                     |___/  v2.1.0
 #
 # An Archipelago Discord Bot
 #                - By the Zajcats
@@ -149,6 +149,8 @@ lottery_queue = Queue()
 port_queue = Queue()
 password_queue = Queue()
 discordbridge_queue = Queue()
+hint_queue = Queue()
+hintprocessing_queue = Queue()
 
 if(DebugMode == "true"):
     WSdbug = True
@@ -234,6 +236,7 @@ class TrackerClient:
                     for i in range(len(json.loads(RawMessage))):
                         args: dict = json.loads(RawMessage)[i]
                         cmd = args.get('cmd')
+                        #print(RawMessage)
                         if cmd == self.MessageCommand.ROOM_INFO.value:
                             WriteRoomInfo(args)
                             self.check_datapackage()
@@ -379,6 +382,147 @@ class TrackerClient:
             websocket_queue.put("!! Tracker start error...")
 
 
+class HintClient:
+    tags: set[str] = {'TextOnly'}
+    version: dict[str, any] = {"major": 0, "minor": 6, "build": 0, "class": "Version"}
+    items_handling: int = 0b000  # This client does not receive any items
+
+    class MessageCommand(Enum):
+        BOUNCED = 'Bounced'
+        PRINT_JSON = 'PrintJSON'
+        ROOM_INFO = 'RoomInfo'
+        DATA_PACKAGE = 'DataPackage'
+        CONNECTED = 'Connected'
+        CONNECTIONREFUSED = 'ConnectionRefused'
+
+    def __init__(
+        self,
+        *,
+        server_uri: str,
+        port: str,
+        password: str,
+        slot_name: str,
+        verbose_logging: bool = False,
+        **kwargs: typing.Any
+    ) -> None:
+        self.server_uri = server_uri
+        self.port = port
+        self.password = password
+        self.slot_name = slot_name
+        self.verbose_logging = verbose_logging
+        self.ap_connection_kwargs = kwargs
+        self.uuid: int = uuid.getnode()
+        self.ap_connection: ClientConnection = None
+        self.socket_thread: Thread = None
+        self.is_closed = Event()
+
+    def run(self):
+        try:
+            hintlooper=0
+            while not self.is_closed.is_set():
+                #=== Message Loop ===#
+                try:
+                    RawMessage = self.ap_connection.recv(timeout=0.1)
+                    for i in range(len(json.loads(RawMessage))):
+                        args: dict = json.loads(RawMessage)[i]
+                        cmd = args.get('cmd')
+                        if cmd == self.MessageCommand.ROOM_INFO.value:
+                            print("-- HintClient received ROOM_INFO sending CONNECT.")
+                            self.send_connect()
+                        elif cmd == self.MessageCommand.CONNECTED.value:
+                            print("-- HintClient received CONNECTED.")
+                            self.process_hint()
+                        elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
+                            print("HintClient CONNECTION_REFUSED by server - check your slot name / port / whatever, and try again.")
+                            chat_queue.put(args)
+                        elif cmd == self.MessageCommand.PRINT_JSON.value:
+                            if args.get('type') == 'Hint':
+                                chat_queue.put(args)
+                            elif args.get('type') == 'CommandResult':
+                                chat_queue.put(args)
+                            else:
+                                print("-- HintClient received unhandled PRINT_JSON type." + str(args))
+                        else:
+                            print("-- HintClient received unknown command." + str(args))
+                        pass
+                except websockets.exceptions.ConnectionClosedError as e:
+                    print(e)
+                    self.is_closed.set()
+                    break
+                except websockets.exceptions.ConnectionClosed as e:
+                    print(e)
+                    self.is_closed.set()
+                    break
+                except websockets.exceptions.InvalidState as e:
+                    print(e)
+                    self.is_closed.set()
+                    break
+                except TimeoutError as e:
+                    pass
+                except Exception as e:
+                    print(e)
+                    self.is_closed.set()
+                    break
+                if hintlooper >= 20:
+                    self.stop()
+                    time.sleep(3)
+                    break
+                time.sleep(0.5)
+                hintlooper=hintlooper+1
+                #=== End Message Loop ===#
+                
+        except Exception as e:
+            WriteToErrorLog("Websocket", "HintClient Unhandled exception in Main Run loop: " + str(e))
+            self.is_closed.set()
+        #=== End Main Run Loop ===
+
+    def send_connect(self) -> None:
+        print("-- Sending `Connect` packet to log in to server.")
+        payload = {
+            'cmd': 'Connect',
+            'game': '',
+            'password': self.password,
+            'name': self.slot_name,
+            'version': self.version,
+            'tags': list(self.tags),
+            'items_handling': self.items_handling,
+            'uuid': self.uuid,
+        }
+        self.send_message(payload)
+
+    def send_message(self, message: dict) -> None:
+        self.ap_connection.send(json.dumps([message]))
+
+    def stop(self) -> None:
+        self.is_closed.set()
+        self.ap_connection.close()
+
+    def start(self) -> None:
+        print("-- Attempting to open an HintClient connection in a new thread.")
+        try:
+            self.ap_connection = connect(
+                f'{self.server_uri}:{self.port}',
+                max_size=None,
+                **self.ap_connection_kwargs
+            )
+            self.socket_thread: Thread = None
+            self.socket_thread = Thread(target=self.run)
+            self.socket_thread.daemon = True
+            self.socket_thread.start()
+        except Exception as e:
+            print("Error while trying to connect HintClient to Archipelago:")
+            print(e)
+            websocket_queue.put("!! HintClient start error...")
+
+    def process_hint(self) -> None:
+        print("-- Requesting Hint from server.")
+        received_payload = hintprocessing_queue.get()
+        received_payload = "!hint " + str(received_payload)
+        payload = {
+            'cmd': 'Say',
+            'text': str(received_payload)}
+        self.send_message(payload)
+
 
 ## DISCORD EVENT HANDLERS + CORE FUNTION
 @DiscordClient.event
@@ -442,6 +586,13 @@ async def on_message(message):
     if message.content.startswith('$hints'):
         await Command_Hints(message.author)
     
+    if message.content.startswith('$hint'):
+        hintrequest = ((message.content).split('$hint '))[1].split('|')
+        if(len(hintrequest)==2):
+            hint_queue.put(hintrequest)
+        else:
+            await SendMainChannelMessage("Invalid $hint format. Use `$hint <slot>|<item>`")
+
     if message.content.startswith('$deathcount'):
         await Command_DeathCount()
     
@@ -634,7 +785,50 @@ async def ProcessChatQueue():
     else:
         chatmessage = chat_queue.get()
         if not (chatmessage['data'][0]['text']).startswith(ArchipelagoBotSlot):
-            if not chatmessage['message'].lower().startswith("!"):
+            if chatmessage['type'] == "Hint":
+                # I'm leaving these print()s in untill the feature is tested more. Pay no attention to the man behind the curtin.
+                #print("Hint received in chat queue.")
+                
+                # Raw hint data for processing
+                networkitem = chatmessage['item']
+                receiverslotID = str(chatmessage['receiving'])
+                receiveritemID = str(networkitem['item'])
+                finderslotID = str(networkitem['player'])
+                finderlocationID = str(networkitem['location'])
+                found = chatmessage['found']
+                
+                #print("receiverID: ", receiverslotID)
+                #print("receiveritemID: ", receiveritemID)
+                #print("finderslot: ", finderslotID)
+                #print("finderlocationID: ", finderlocationID)
+                #print("FOUND?: ", found)
+                #print("---")
+                
+                #Translated hint data for user display
+                receiverGame = str(LookupGame(receiverslotID))
+                findersGame = str(LookupGame(finderslotID))
+                receiverSlot = str(LookupSlot(receiverslotID))
+                receiverItem = str(LookupItem(receiverGame, receiveritemID))
+                finderSlot = str(LookupSlot(finderslotID))
+                finderLocation = str(LookupLocation(findersGame, finderlocationID))
+                
+                #print("receiverSlot: ", receiverSlot)
+                #print("receiverItem: ", receiverItem)
+                #print("finderSlot: ", finderSlot)
+                #print("finderLocation: ", finderLocation)
+                
+                if found:
+                    foundtext = "(Found)"
+                else:
+                    foundtext = "(Not Found)"
+                
+                FinishedHintMessage =  "" + foundtext + " " + receiverSlot + "\'s " + receiverItem + " is at " + finderSlot + "\'s World at " + finderLocation
+                #print(FinishedHintMessage)
+                await SendMainChannelMessage(FinishedHintMessage)
+                
+            elif chatmessage['type'] == "CommandResult":
+                await SendMainChannelMessage("Hint Result: " + chatmessage['data'][0]['text'])
+            elif not chatmessage['message'].lower().startswith("!"):
                 await SendMainChannelMessage(chatmessage['data'][0]['text'])
             else:
                 if EnableAPClientHelp == "true" and chatmessage['message'].lower().startswith("!help"):
@@ -1728,6 +1922,18 @@ def main():
             print("++ Starting the discord thread again")
             DiscordThread = Process(target=Discord)
             DiscordThread.start()
+            
+        if not hint_queue.empty():
+            hint_object = hint_queue.get()
+            hintprocessing_queue.put(hint_object[1])
+            hint_client = HintClient(
+                server_uri=ArchHost,
+                port=ArchPort,
+                password=ArchPassword,
+                slot_name=hint_object[0],
+            )      
+            hint_client.start()
+            time.sleep(5)
 
         try:
             time.sleep(1)
