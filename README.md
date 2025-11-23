@@ -141,6 +141,26 @@ Hopefully that makes sense.
 |CollectMessages|Will relay collect messages|
 |CountdownMessages|Will relay server coutndown messages|
 |DeathlinkMessages|Will relay deathlink messages|
+|||
+|**! Command Config**||
+|APClientHelp|Will relay `!help` to discord|
+|APClientLicense|Will relay `!License` to discord|
+|APClientCountdown|etc...|
+|APClientOptions|etc...|
+|APClientAdmin||
+|APClientPlayers||
+|APClientStatus||
+|APClientRelease||
+|APClientCollect||
+|APClientRemaining||
+|APClientMissing||
+|APClientChecked||
+|APClientAlias||
+|APClientGetItem||
+|APClientHint||
+|APClientHintLocation||
+|APClientVideo|You get the idea. :)|
+|||
 |**Drawbridge Config**||
 |DiscordBridgeEnabled|Will toggle the ability to send messages to AP from Discord|
 |||

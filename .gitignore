@@ -4,9 +4,8 @@ RegistrationData/
 logs/
 ArchData/
 bridgeipelago
-
-bot.py
 bot/
+bot.py
 test/
 
 
