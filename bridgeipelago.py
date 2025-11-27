@@ -201,10 +201,6 @@ class TrackerClient:
         port: str,
         password: str,
         slot_name: str,
-        on_death_link: callable = None,
-        on_item_send: callable = None,
-        on_chat_send: callable = None,
-        on_datapackage: callable = None,
         verbose_logging: bool = False,
         **kwargs: typing.Any
     ) -> None:
@@ -212,10 +208,6 @@ class TrackerClient:
         self.port = port
         self.password = password
         self.slot_name = slot_name
-        self.on_death_link = on_death_link
-        self.on_item_send = on_item_send
-        self.on_chat_send = on_chat_send
-        self.on_datapackage = on_datapackage
         self.verbose_logging = verbose_logging
         self.ap_connection_kwargs = kwargs
         self.uuid: int = uuid.getnode()
@@ -236,7 +228,8 @@ class TrackerClient:
                     for i in range(len(json.loads(RawMessage))):
                         args: dict = json.loads(RawMessage)[i]
                         cmd = args.get('cmd')
-                        #print(RawMessage)
+                        MessageObject = {"type": "APMessage", "data": args, "flag": "None"}
+                        print(RawMessage)
                         if cmd == self.MessageCommand.ROOM_INFO.value:
                             WriteRoomInfo(args)
                             self.check_datapackage()
@@ -252,31 +245,31 @@ class TrackerClient:
                             WriteToErrorLog("Websocket", str(args))
                             seppuku_queue.put(args)
                         elif cmd == self.MessageCommand.PRINT_JSON.value:
-                            if args.get('type') == 'ItemSend' and self.on_item_send:
-                                self.on_item_send(args)
+                            if args.get('type') == 'ItemSend':
+                                item_queue.put(args)
                             elif args.get('type') == 'Chat':
-                                if EnableChatMessages == "true" and self.on_chat_send:
-                                    self.on_chat_send(args)
+                                if EnableChatMessages == "true":
+                                    chat_queue.put(MessageObject)
                             elif args.get('type') == 'ServerChat':
-                                if EnableServerChatMessages == "true" and self.on_chat_send:
-                                     self.on_chat_send(args)
+                                if EnableServerChatMessages == "true":
+                                     chat_queue.put(MessageObject)
                             elif args.get('type') == 'Goal':
                                 print("writting to archstatus")
                                 print(args,"===============")
                                 WriteToArchStatus(args)
-                                if EnableGoalMessages == "true" and self.on_chat_send:
-                                    self.on_chat_send(args)
+                                if EnableGoalMessages == "true":
+                                    chat_queue.put(MessageObject)
                             elif args.get('type') == 'Release':
-                                if EnableReleaseMessages == "true" and self.on_chat_send:
-                                    self.on_chat_send(args)
+                                if EnableReleaseMessages == "true":
+                                    chat_queue.put(MessageObject)
                             elif args.get('type') == 'Collect':
-                                if EnableCollectMessages == "true" and self.on_chat_send:
-                                    self.on_chat_send(args)
+                                if EnableCollectMessages == "true":
+                                    chat_queue.put(MessageObject)
                             elif args.get('type') == 'Countdown':
-                                if EnableCountdownMessages == "true" and self.on_chat_send:
-                                    self.on_chat_send(args)
-                        elif 'DeathLink' in args.get('tags', []) and self.on_death_link:
-                            self.on_death_link(args)
+                                if EnableCountdownMessages == "true":
+                                    chat_queue.put(MessageObject)
+                        elif 'DeathLink' in args.get('tags', []):
+                            death_queue.put(args)
                         else:
                             WriteToErrorLog("Websocket", "Tracker Unhandled Message: " + str(args))
                         pass
@@ -426,6 +419,7 @@ class HintClient:
                     for i in range(len(json.loads(RawMessage))):
                         args: dict = json.loads(RawMessage)[i]
                         cmd = args.get('cmd')
+                        MessageObject = {"type": "HTMessage", "data": args, "flag": "None"}
                         if cmd == self.MessageCommand.ROOM_INFO.value:
                             print("-- HintClient received ROOM_INFO sending CONNECT.")
                             self.send_connect()
@@ -434,13 +428,16 @@ class HintClient:
                             self.process_hint()
                         elif cmd == self.MessageCommand.CONNECTIONREFUSED.value:
                             print("HintClient CONNECTION_REFUSED by server - check your slot name / port / whatever, and try again.")
-                            CustomObject = {"data": [{"text": "HintClient: ERROR - Connection Refused by server. Check your slot name / port / whatever, and try again."}], "type":"ERROR" }
-                            chat_queue.put(CustomObject)
+                            MessageObject["data"] = {"text": "HintClient: ERROR - Connection Refused by server. Check your slot name / port / whatever, and try again."}
+                            MessageObject["flag"] = "ERROR"
+                            chat_queue.put(MessageObject)
                         elif cmd == self.MessageCommand.PRINT_JSON.value:
                             if args.get('type') == 'Hint':
-                                chat_queue.put(args)
+                                chat_queue.put(MessageObject)
                             elif args.get('type') == 'CommandResult':
-                                chat_queue.put(args)
+                                chat_queue.put(MessageObject)
+                            elif args.get('type') == 'Join' or args.get('type') == 'Tutorial' or args.get('type') == 'Chat':
+                                pass
                             else:
                                 print("-- HintClient received unhandled PRINT_JSON type." + str(args))
                         else:
@@ -588,7 +585,7 @@ async def on_message(message):
         await Command_Hints(message.author)
     
     if message.content.startswith('$hint'):
-        hintrequest = ((message.content).split('$hint '))[1].split('|')
+        hintrequest = [item.strip() for item in ((message.content).split('$hint '))[1].split('|')]
         if(len(hintrequest)==2):
             hint_queue.put(hintrequest)
         else:
@@ -781,96 +778,124 @@ async def ProcessDeathQueue():
 
 @tasks.loop(seconds=QueueOverclock)
 async def ProcessChatQueue():
-    if chat_queue.empty():
-        return
-    else:
-        chatmessage = chat_queue.get()
-        if not (chatmessage['data'][0]['text']).startswith(ArchipelagoBotSlot):
-            if chatmessage['type'] == "ERROR":
-                await SendMainChannelMessage(chatmessage['data'][0]['text'])
-            elif chatmessage['type'] == "Hint":
-                # I'm leaving these print()s in untill the feature is tested more. Pay no attention to the man behind the curtin.
-                #print("Hint received in chat queue.")
-                
-                # Raw hint data for processing
-                networkitem = chatmessage['item']
-                receiverslotID = str(chatmessage['receiving'])
-                receiveritemID = str(networkitem['item'])
-                finderslotID = str(networkitem['player'])
-                finderlocationID = str(networkitem['location'])
-                found = chatmessage['found']
-                
-                #print("receiverID: ", receiverslotID)
-                #print("receiveritemID: ", receiveritemID)
-                #print("finderslot: ", finderslotID)
-                #print("finderlocationID: ", finderlocationID)
-                #print("FOUND?: ", found)
-                #print("---")
-                
-                #Translated hint data for user display
-                receiverGame = str(LookupGame(receiverslotID))
-                findersGame = str(LookupGame(finderslotID))
-                receiverSlot = str(LookupSlot(receiverslotID))
-                receiverItem = str(LookupItem(receiverGame, receiveritemID))
-                finderSlot = str(LookupSlot(finderslotID))
-                finderLocation = str(LookupLocation(findersGame, finderlocationID))
-                
-                #print("receiverSlot: ", receiverSlot)
-                #print("receiverItem: ", receiverItem)
-                #print("finderSlot: ", finderSlot)
-                #print("finderLocation: ", finderLocation)
-                
-                if found:
-                    foundtext = "(Found)"
-                else:
-                    foundtext = "(Not Found)"
-                
-                FinishedHintMessage =  "" + foundtext + " " + receiverSlot + "\'s " + receiverItem + " is at " + finderSlot + "\'s World at " + finderLocation
-                #print(FinishedHintMessage)
-                await SendMainChannelMessage(FinishedHintMessage)
-                
-            elif chatmessage['type'] == "CommandResult":
-                await SendMainChannelMessage("Hint Result: " + chatmessage['data'][0]['text'])
-            elif not chatmessage['message'].lower().startswith("!"):
-                await SendMainChannelMessage(chatmessage['data'][0]['text'])
-            else:
-                if EnableAPClientHelp == "true" and chatmessage['message'].lower().startswith("!help"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientLicense == "true" and chatmessage['message'].lower().startswith("!license"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientCountdown == "true" and chatmessage['message'].lower().startswith("!countdown"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientOptions == "true" and chatmessage['message'].lower().startswith("!options"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientAdmin == "true" and chatmessage['message'].lower().startswith("!admin"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientPlayers == "true" and chatmessage['message'].lower().startswith("!players"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientStatus == "true" and chatmessage['message'].lower().startswith("!status"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientRelease == "true" and chatmessage['message'].lower().startswith("!release"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientCollect == "true" and chatmessage['message'].lower().startswith("!collect"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientRemaining == "true" and chatmessage['message'].lower().startswith("!remaining"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientMissing == "true" and chatmessage['message'].lower().startswith("!missing"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientChecked == "true" and chatmessage['message'].lower().startswith("!checked"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientAlias == "true" and chatmessage['message'].lower().startswith("!alias"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientGetItem == "true" and chatmessage['message'].lower().startswith("!getitem"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientHint == "true" and chatmessage['message'].lower().startswith("!hint"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientHintLocation == "true" and chatmessage['message'].lower().startswith("!hint_location"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                elif EnableAPClientVideo == "true" and chatmessage['message'].lower().startswith("!video"):
-                    await SendMainChannelMessage(chatmessage['data'][0]['text'])
-                else:
+    # Messages are passed to the chat queue in the following format:
+    #
+    # MessageObject = {"type": "<type>", "data": args, "flag": <flag>}
+    #
+    # <type>:
+    # "APMessage" - Standard Archipelago chat message
+    # "HTMessage" - Hint Tracker message
+    #
+    # <flag>:
+    # "None" - Standard message
+    # "ERROR" - Error message
+    #
+    # MessageObject = {"type": "APMessage", "data": args, "flag": "None"}
+    # MessageObject = {"type": "HTMessage", "data": args, "flag": "None"}
+    #
+    
+    try:
+        if chat_queue.empty():
+            return
+        else:
+            Message = chat_queue.get()
+            if Message['type'] == "HTMessage":
+                if Message['flag'] == "ERROR":
+                    await SendMainChannelMessage(Message['data']['text'])
+                elif Message['flag'] == "None":
+                    if Message['data']['type'] == "CommandResult":
+                        await SendMainChannelMessage("Hint Result: " + Message['data']['data'][0]['text'])
+                    elif Message['data']['type'] == "Hint":
+                        # I'm leaving these print()s in untill the feature is tested more. Pay no attention to the man behind the curtin.
+                        #print("Hint received in chat queue.")
+
+                        # Raw hint data for processing
+                        networkitem = Message['data']['item']
+                        receiverslotID = str(Message['data']['receiving'])
+                        receiveritemID = str(networkitem['item'])
+                        finderslotID = str(networkitem['player'])
+                        finderlocationID = str(networkitem['location'])
+                        found = Message['data']['found']
+
+                        #print("receiverID: ", receiverslotID)
+                        #print("receiveritemID: ", receiveritemID)
+                        #print("finderslot: ", finderslotID)
+                        #print("finderlocationID: ", finderlocationID)
+                        #print("FOUND?: ", found)
+                        #print("---")
+
+                        #Translated hint data for user display
+                        receiverGame = str(LookupGame(receiverslotID))
+                        findersGame = str(LookupGame(finderslotID))
+                        receiverSlot = str(LookupSlot(receiverslotID))
+                        receiverItem = str(LookupItem(receiverGame, receiveritemID))
+                        finderSlot = str(LookupSlot(finderslotID))
+                        finderLocation = str(LookupLocation(findersGame, finderlocationID))
+
+                        #print("receiverSlot: ", receiverSlot)
+                        #print("receiverItem: ", receiverItem)
+                        #print("finderSlot: ", finderSlot)
+                        #print("finderLocation: ", finderLocation)
+
+                        if found:
+                            foundtext = SpecialFormat("(Found)",3,1)
+                        else:
+                            foundtext = SpecialFormat("(Not Found)",2,0)
+
+                        FinishedHintMessage =  "```ansi\n" + foundtext + " " + receiverSlot + "\'s " + receiverItem + " is at " + finderSlot + "\'s World at " + finderLocation + "```"
+                        #print(FinishedHintMessage)
+                        await SendMainChannelMessage(FinishedHintMessage)
+            elif Message['type'] == "APMessage":
+                MessageMessage = Message['data']['message'].lower()
+                MessageText = Message['data']['data'][0]['text']
+                if (MessageText).startswith(ArchipelagoBotSlot):
                     await CancelProcess()
-                    
+                elif not Message['data']['message'].lower().startswith("!"):
+                    await SendMainChannelMessage(MessageText) 
+                else:
+                    if EnableAPClientHelp == "true" and MessageMessage.startswith("!help"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientLicense == "true" and MessageMessage.startswith("!license"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientCountdown == "true" and MessageMessage.startswith("!countdown"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientOptions == "true" and MessageMessage.startswith("!options"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientAdmin == "true" and MessageMessage.startswith("!admin"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientPlayers == "true" and MessageMessage.startswith("!players"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientStatus == "true" and MessageMessage.startswith("!status"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientRelease == "true" and MessageMessage.startswith("!release"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientCollect == "true" and MessageMessage.startswith("!collect"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientRemaining == "true" and MessageMessage.startswith("!remaining"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientMissing == "true" and MessageMessage.startswith("!missing"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientChecked == "true" and MessageMessage.startswith("!checked"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientAlias == "true" and MessageMessage.startswith("!alias"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientGetItem == "true" and MessageMessage.startswith("!getitem"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientHint == "true" and MessageMessage.startswith("!hint"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientHintLocation == "true" and MessageMessage.startswith("!hint_location"):
+                        await SendMainChannelMessage(MessageText)
+                    elif EnableAPClientVideo == "true" and MessageMessage.startswith("!video"):
+                        await SendMainChannelMessage(MessageText)
+                    else:
+                        await CancelProcess()
+            else:
+                WriteToErrorLog("ChatQueue", "Unknown chat message type received: " + str(Message))
+    except Exception as e:
+        WriteToErrorLog("ChatQueue", "Error occurred while processing chat queue: " + str(e))
+        print("ChatQueue - Error occurred while processing chat queue: " , str(e))
+        await SendDebugChannelMessage("Error In Chat Queue Process")
+
 @tree.command(name="register",
     description="Registers you for AP slot",
     guild=discord.Object(id=DiscordGuildID)
@@ -1821,10 +1846,7 @@ if(DiscordJoinOnly == "false"):
         port=ArchPort,
         password=ArchPassword,
         slot_name=ArchipelagoBotSlot,
-        verbose_logging=WSdbug,
-        on_chat_send=lambda args : chat_queue.put(args),
-        on_death_link=lambda args : death_queue.put(args),
-        on_item_send=lambda args : item_queue.put(args)
+        verbose_logging=WSdbug
     )
     # Start the tracker client in a seperate thread then sleep for 5 seconds to allow the datapackage to download.
     try:
