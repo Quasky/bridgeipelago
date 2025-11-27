@@ -762,17 +762,18 @@ async def ProcessDeathQueue():
     else:
         chatmessage = death_queue.get()
         timecode = time.strftime("%Y||%m||%d||%H||%M||%S")
-        DeathMessage = "**Deathlink received from: " + str(chatmessage['data']['source']) + "**"
         DeathLogMessage = timecode + "||" + str(chatmessage['data']['source']) + "\n"
         o = open(DeathFileLocation, "a")
         o.write(DeathLogMessage)
         o.close()
+        
         if EnableDeathlinkMessages == "true":
-            if EnableFlavorDeathlink == "true":
-                FlavorMessage = "Deathlink: " + GetFlavorText(str(chatmessage['data']['source']))
-                await SendMainChannelMessage(FlavorMessage)
-            else:
-                await SendMainChannelMessage(DeathMessage)
+            DeathMessage = "**Deathlink received from: " + str(chatmessage['data']['source']) + "**"
+            if chatmessage['data'].get('cause') is not None and chatmessage['data'].get('cause') != "":
+                DeathMessage = DeathMessage + "\n" + "Cause: " + str(chatmessage['data']['cause'])
+            elif EnableFlavorDeathlink == "true":
+                DeathMessage = "Deathlink: " + GetFlavorText(str(chatmessage['data']['source']))
+            await SendMainChannelMessage(DeathMessage)
         else:
             return
 
