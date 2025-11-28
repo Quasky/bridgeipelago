@@ -1780,6 +1780,8 @@ def SetEnvVariable(key, value):
         return "Key '" + key + "' set to '" + value + "'!"
 
 def ReloadBot():
+    global CrippleTracker
+    CrippleTracker = False
     websocket_queue.put("Discord requested the bot to be reloaded!")
 
 def WriteToErrorLog(module,message):
@@ -1911,6 +1913,8 @@ def main():
 
     DiscordCycleCount = 0
     TrackerCycleCount = 0
+    
+    CrippleTracker = False
 
     if not seppuku_queue.empty():
         print("!!! Critical Error Detected !!!")
@@ -1919,13 +1923,17 @@ def main():
 
     ## Gotta keep the bot running!
     while True:
-        if (DiscordJoinOnly=="false") and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty() or not seppuku_queue.empty()):
+        
+        if TrackerCycleCount >= 7:
+            print("!!! Tracker has crtically failed to restart multiple times")
+            print("!!! Exiting for manual intervention")
+            MessageObject = {"type": "CORE", "data": {"text": "[CORE]: ERROR - Tracker has crtically failed to restart multiple times. Manual intervention required."}, "flag": "ERROR"}
+            chat_queue.put(MessageObject)
+            CrippleTracker = True
+            TrackerCycleCount = 0
+        
+        if (DiscordJoinOnly=="false") and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty() or not seppuku_queue.empty()) and not CrippleTracker:
             print("-- Tracker is not running, requested a restart, or has failed, so we do the needful")
-            
-            if TrackerCycleCount >= 7:
-                print("!!! Tracker has crtically failed to restart multiple times")
-                print("!!! Exiting for manual intervention")
-                exit(1)
             
             if not seppuku_queue.empty():
                 print("-- Tracker commited Seppuku, Requesting new port information")
