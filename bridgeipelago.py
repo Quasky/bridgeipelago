@@ -138,6 +138,8 @@ EnvPath = os.getcwd() + "/.env"
 DiscordClient = None
 tracker_client = None
 
+RequestPortScan = False
+
 ## These are the main queues for processing data from the Archipelago Tracker to the Discord Bot
 item_queue = Queue()
 death_queue = Queue()
@@ -632,6 +634,12 @@ async def on_message(message):
 
 @tasks.loop(seconds=1)
 async def CheckCommandQueue():
+    global RequestPortScan
+    if RequestPortScan:
+        print("++ RequestPortScan set, checking ArchHost for port change.")
+        RequestPortScan = False
+        CheckArchHost.restart()
+    
     if discordseppuku_queue.empty():
             return
     else:
@@ -646,7 +654,7 @@ async def CheckCommandQueue():
         print("++ Closing Discord Client")
         exit()
 
-@tasks.loop(seconds=900)
+@tasks.loop(seconds=60)
 async def CheckArchHost():
     if SelfHostNoWeb == "true":
         await CancelProcess()
@@ -1897,29 +1905,51 @@ def main():
     global ArchPort
     global DiscordClient
     global tracker_client
+    global RequestPortScan
     DiscordThread = Process(target=Discord)
     DiscordThread.start()
 
     DiscordCycleCount = 0
+    TrackerCycleCount = 0
+
+    if not seppuku_queue.empty():
+        print("!!! Critical Error Detected !!!")
+        print("Seppuku Initiated - Goodbye Friend")
+        exit(1)
 
     ## Gotta keep the bot running!
     while True:
-        if not seppuku_queue.empty():
-            print("!!! Critical Error Detected !!!")
-            print("Seppuku Initiated - Goodbye Friend")
-            exit(1)
-
-        if (DiscordJoinOnly=="false") and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty()):
+        if (DiscordJoinOnly=="false") and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty() or not seppuku_queue.empty()):
+            print("-- Tracker is not running, requested a restart, or has failed, so we do the needful")
+            
+            if TrackerCycleCount >= 7:
+                print("!!! Tracker has crtically failed to restart multiple times")
+                print("!!! Exiting for manual intervention")
+                exit(1)
+            
+            if not seppuku_queue.empty():
+                print("-- Tracker commited Seppuku, Requesting new port information")
+                print("-- Sleeping for 5 seconds to allow DiscordBot to process PortScan")
+                RequestPortScan = True
+                time.sleep(5)
+                TrackerCycleCount = TrackerCycleCount + 1
+            
             while not websocket_queue.empty():
                 SQMessage = websocket_queue.get()
-                print("!! clearing queue -- ", SQMessage)
-            print("-- Tracker thread is not running, restarting it")
+                print("-- clearing websocket queue -- ", SQMessage)
+            while not seppuku_queue.empty():
+                SQMessage = seppuku_queue.get()
+                print("-- clearing seppuku queue -- ", SQMessage)
+
             print("-- Stopping Tracker...")
             tracker_client.stop()
-            print("-- sleeping for 5 seconds to allow the tracker to close")
-            time.sleep(5)
+            print("-- Sleeping for 3 seconds to allow the tracker to close")
+            time.sleep(3)
             print("-- Restarting tracker client...")
             tracker_client.start()
+            time.sleep(3)
+        else:
+            TrackerCycleCount = 0
 
         if not CycleDiscord == 0:
             DiscordCycleCount = DiscordCycleCount + 1
