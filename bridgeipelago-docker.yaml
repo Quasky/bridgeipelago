@@ -10,6 +10,7 @@ services:
       #---[Archipelago Config]---
       ArchipelagoServer: wss://archipelago.gg
       ArchipelagoPort: 12345
+      ArchipelagoPassword: <your_archipelago_password>
       ArchipelagoBotSlot: Bridgeipelago
       ArchipelagoTrackerURL: https://Archipelago.gg/tracker/<customURLhere>
       ArchipelagoServerURL: https://archipelago.gg/room/<customURLhere>
@@ -25,6 +26,26 @@ services:
       CollectMessages: 'true'
       CountdownMessages: 'true'
       DeathlinkMessages: 'true'
+      #---[ ! Command Config ]---
+      APClientHelp: 'false'
+      APClientLicense: 'false'
+      APClientCountdown: 'false'
+      APClientOptions: 'false'
+      APClientAdmin: 'false'
+      APClientPlayers: 'false'
+      APClientStatus: 'false'
+      APClientRelease: 'false'
+      APClientCollect: 'false'
+      APClientRemaining: 'false'
+      APClientMissing: 'false'
+      APClientChecked: 'false'
+      APClientAlias: 'false'
+      APClientGetItem: 'false'
+      APClientHint: 'false'
+      APClientHintLocation: 'false'
+      APClientVideo: 'false'
+      #---[Drawbridge Config]---
+      DiscordBridgeEnabled: 'false'
       #---[Meta Config]---
       FlavorDeathlink: 'false'
       DeathlinkLottery: 'false'
@@ -34,10 +55,12 @@ services:
       PlayerItemQueueDirectory: /ItemQueue/
       ArchipelagoDataDirectory: /ArchData/
       QueueOverclock: 1
+      SnoozeCompletedGames: 'false'
       JoinMessage: '<custom join message here>'
       DebugMode: 'false'
       DiscordJoinOnly: 'false'
       SelfHostNoWeb: 'false'
+      CycleDiscord: 0
     image: bridgeipelago:latest
     volumes:
       - ./bridgeipelago/logs:/bridgeipelago/logs
