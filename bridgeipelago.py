@@ -1805,6 +1805,7 @@ def ConfirmDataLocations():
     global ArchConnectionDump
     global ArchRoomData
     global ArchStatus
+    global UniqueID
     LoggingDirectory = os.getcwd() + os.getenv('LoggingDirectory') + UniqueID + '/'
     RegistrationDirectory = os.getcwd() + os.getenv('PlayerRegistrationDirectory') + UniqueID + '/'
     ItemQueueDirectory = os.getcwd() + os.getenv('PlayerItemQueueDirectory') + UniqueID + '/'
