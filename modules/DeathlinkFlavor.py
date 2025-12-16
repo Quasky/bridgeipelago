@@ -104,4 +104,5 @@ def GetFlavorText(PlayerName):
     "PLAYER walked into logic’s trap.",
     "PLAYER perished chasing progression.",
     ]
-    return (random.choice(FlavorList)).replace("PLAYER", PlayerName)
+    PlayerNameFormatted = f"**{PlayerName}**"
+    return (random.choice(FlavorList)).replace("PLAYER", PlayerNameFormatted)

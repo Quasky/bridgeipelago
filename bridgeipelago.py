@@ -776,11 +776,15 @@ async def ProcessDeathQueue():
         o.close()
         
         if EnableDeathlinkMessages == "true":
-            DeathMessage = "**Deathlink received from: " + str(chatmessage['data']['source']) + "**"
+            DeathMessage = "**Deathlink!** "
+            # Flavour
+            if EnableFlavorDeathlink == "true":
+                DeathMessage += GetFlavorText(str(chatmessage['data']['source']))
+            else:
+                DeathMessage += "Received from **" + str(chatmessage['data']['source']) + "**"
+            # Cause
             if chatmessage['data'].get('cause') is not None and chatmessage['data'].get('cause') != "":
-                DeathMessage = DeathMessage + "\n" + "Cause: " + str(chatmessage['data']['cause'])
-            elif EnableFlavorDeathlink == "true":
-                DeathMessage = "Deathlink: " + GetFlavorText(str(chatmessage['data']['source']))
+                DeathMessage += "\n" + "*Cause:* " + str(chatmessage['data']['cause'])
             await SendMainChannelMessage(DeathMessage)
         else:
             return
