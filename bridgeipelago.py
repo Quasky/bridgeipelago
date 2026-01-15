@@ -134,6 +134,7 @@ ArchGameJSON = []
 ArchConnectionJSON = []
 ReconnectionTimer = 5
 EnvPath = os.getcwd() + "/.env"
+CrippleTracker = False
 
 DiscordClient = None
 tracker_client = None
@@ -231,7 +232,7 @@ class TrackerClient:
                         args: dict = json.loads(RawMessage)[i]
                         cmd = args.get('cmd')
                         MessageObject = {"type": "APMessage", "data": args, "flag": "None"}
-                        print(RawMessage)
+                        #print(RawMessage)
                         if cmd == self.MessageCommand.ROOM_INFO.value:
                             WriteRoomInfo(args)
                             self.check_datapackage()
@@ -794,6 +795,10 @@ async def ProcessChatQueue():
     # <type>:
     # "APMessage" - Standard Archipelago chat message
     # "HTMessage" - Hint Tracker message
+    # "CORE" - Core system message
+    #
+    # <data>:
+    #  {text: "message text here"}
     #
     # <flag>:
     # "None" - Standard message
@@ -801,14 +806,16 @@ async def ProcessChatQueue():
     #
     # MessageObject = {"type": "APMessage", "data": args, "flag": "None"}
     # MessageObject = {"type": "HTMessage", "data": args, "flag": "None"}
-    #
+    # MessageObject = {"type": "CORE", "data": args, "flag": "None"}
     
     try:
         if chat_queue.empty():
             return
         else:
             Message = chat_queue.get()
-            if Message['type'] == "HTMessage":
+            if Message['type'] == "CORE":
+                await SendMainChannelMessage(Message['data']['text'])
+            elif Message['type'] == "HTMessage":
                 if Message['flag'] == "ERROR":
                     await SendMainChannelMessage(Message['data']['text'])
                 elif Message['flag'] == "None":
@@ -1760,6 +1767,8 @@ def SetEnvVariable(key, value):
             global ArchPort
             ArchPort = value
             port_queue.put(value)
+            global CrippleTracker
+            CrippleTracker = False
         elif key == "ArchipelagoPassword":
             global ArchPassword
             ArchPassword = value
@@ -1915,6 +1924,7 @@ def main():
     DiscordCycleCount = 0
     TrackerCycleCount = 0
     
+    global CrippleTracker
     CrippleTracker = False
 
     if not seppuku_queue.empty():
