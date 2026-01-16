@@ -640,7 +640,7 @@ async def CheckArchHost():
             RoomPage = requests.get(RoomAPI)
             RoomData = json.loads(RoomPage.content)
 
-            cond = int(RoomData["last_port"])
+            cond = str(RoomData["last_port"])
             if(cond == CoreConfig["ArchipelagoConfig"]['ArchipelagoPort']):
                 return
             else:
