@@ -27,7 +27,7 @@ import logging
 
 #Threading Dependencies
 from threading import Thread, Event
-from multiprocessing import Queue, Process
+from multiprocessing import Queue, Process, Manager
 
 #Plotting Dependencies
 from matplotlib import pyplot as plt
@@ -49,16 +49,35 @@ import discord
 from discord import app_commands
 import time
 
-# Core Config Loading
+# Global Configuration Loader
+## This allows us to share the config across multiple processes/threads without issue
 try:
-    CoreConfig = json.loads(open('config.json').read())
+    # Initialize multiprocessing manager
+    ConfigManager = Manager()
+    ConfigLock = ConfigManager.RLock()
+    
+    # Load CoreConfig with our config.json
+    config_data = json.loads(open('config.json').read())
+    CoreConfig = ConfigManager.dict(config_data)
+    
+    # Convert nested dictionaries to manager dicts for full sharing
+    for key, value in config_data.items():
+        if isinstance(value, dict):
+            CoreConfig[key] = ConfigManager.dict(value)       
 except Exception as e:
-    print("!!! Error loading config.json:\n" + str(e))
+    print("!!! Error loading config.json / Setting up ConfigManager:\n" + str(e))
     exit()
-
-
-ArchInfo = str(CoreConfig["ArchipelagoConfig"]['ArchipelagoServer']) + ':' + str(CoreConfig["ArchipelagoConfig"]['ArchipelagoPort'])
-
+    
+# Global Toggle Loader
+## This allows us to share the event bools across multiple processes/threads without issue
+try:
+    # Initialize multiprocessing manager
+    ToggleManager = Manager()
+    ToggleLock = ToggleManager.RLock()
+    ToggleConfig = ToggleManager.dict({"CrippleTracker": False, "RequestPortScan": False})      
+except Exception as e:
+    print("!!! Error setting up ToggleManager:\n" + str(e))
+    exit()
 
 # Metadata
 def GetCoreDirectory(folder):
@@ -96,9 +115,8 @@ def GetCoreFiles(file):
         return GetCoreDirectory("arch") + 'ArchRoomData.json'
     elif file == "archstatus":
         return GetCoreDirectory("arch") + 'ArchStatus.json'
-    
 
-
+# Debugging Logger Setup
 if CoreConfig["AdvancedConfig"]["DebugMode"] == True:
     print("++ Debug Mode Enabled - Writing Websocket debug log to " + GetCoreFiles("debuglog"))
     logging.basicConfig(
@@ -114,23 +132,21 @@ if CoreConfig["AdvancedConfig"]["DebugMode"] == True:
 ArchGameJSON = []
 ArchConnectionJSON = []
 ReconnectionTimer = 5
-CrippleTracker = False
 
 DiscordClient = None
 tracker_client = None
 
-RequestPortScan = False
-
 ## These are the main queues for processing data from the Archipelago Tracker to the Discord Bot
+### Main Processing Queues
 item_queue = Queue()
 death_queue = Queue()
 chat_queue = Queue()
+
+### Operation/Control Queues
 seppuku_queue = Queue()
 discordseppuku_queue = Queue()
 websocket_queue = Queue()
 lottery_queue = Queue()
-port_queue = Queue()
-password_queue = Queue()
 discordbridge_queue = Queue()
 hint_queue = Queue()
 hintprocessing_queue = Queue()
@@ -154,7 +170,7 @@ tree = app_commands.CommandTree(DiscordClient)
 #TO DO - Central Control for bot I'll just leave this in for now.
 DiscordGuildID = 1171964435741544498
 
-# Load Meta Modules if they are enabled in the .env
+# Load Meta Modules if they are enabled in the config
 if CoreConfig["MetaConfig"]["FlavorDeathlink"] == True:
     from modules.DeathlinkFlavor import GetFlavorText
 
@@ -566,8 +582,8 @@ async def on_message(message):
     if message.content.startswith('$archinfo'):
         await Command_ArchInfo(message)
 
-    if message.content.startswith('$setenv'):
-        pair = ((message.content).split('$setenv '))[1].split(' ')
+    if message.content.startswith('$setconfig'):
+        pair = ((message.content).split('$setconfig '))[1].split(' ')
         rtrnmessage = SetEnvVariable(pair[0], pair[1])
         await SendMainChannelMessage(rtrnmessage)
 
@@ -590,10 +606,12 @@ async def on_message(message):
 @tasks.loop(seconds=1)
 async def CheckCommandQueue():
     global CoreConfig
-    global RequestPortScan
-    if RequestPortScan:
+    global ToggleConfig
+
+    if ToggleConfig["RequestPortScan"]:
         print("++ RequestPortScan set, checking ArchHost for port change.")
-        RequestPortScan = False
+        with ToggleLock:
+            ToggleConfig["RequestPortScan"] = False
         CheckArchHost.restart()
     
     if discordseppuku_queue.empty():
@@ -1452,8 +1470,7 @@ async def Command_Hello(message):
     await message.channel.send('Hello!')
 
 async def Command_ArchInfo(message):
-    #if(CoreConfig["AdvancedConfig"]["DebugMode"] == True):
-    if(True):
+    if(CoreConfig["AdvancedConfig"]["DebugMode"] == True):
         print("== Discord Config")
         for key, value in CoreConfig["DiscordConfig"].items():
             print(str(key) + ": " + str(value))
@@ -1710,47 +1727,43 @@ def SpecialFormat(text,color,format):
     return itext
 
 def SetEnvVariable(key, value):
-    global CoreConfig
+    global CoreConfig, ToggleConfig, ConfigLock, ToggleLock
     if key not in ["ArchipelagoPort","ArchipelagoPassword","ArchipelagoTrackerURL","ArchipelagoServerURL","UniqueID"]:
         return "Invalid key. Only 'ArchipelagoPort', 'ArchipelagoPassword', 'ArchipelagoTrackerURL', 'ArchipelagoServerURL', and 'UniqueID' can be set."
     else:
-        if key == "ArchipelagoPort":
-            CoreConfig["ArchipelagoConfig"]['ArchipelagoPort'] = value
-            global CrippleTracker
-            CrippleTracker = False
-        if key == "ArchipelagoServerURL":
-            CoreConfig["ArchipelagoConfig"]['ArchipelagoServerURL'] = value
-        elif key == "ArchipelagoPassword":
-            CoreConfig["ArchipelagoConfig"]['ArchipelagoPassword'] = value
-        elif key == "ArchipelagoTrackerURL":
-            CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'] = value
-        elif key == "ArchipelagoServerURL":
-            CoreConfig["ArchipelagoConfig"]['ArchipelagoServerURL'] = value
-        elif key == "UniqueID":
-            CoreConfig["ArchipelagoConfig"]['UniqueID'] = value
+        with ConfigLock:
+            if key == "ArchipelagoPort":
+                CoreConfig["ArchipelagoConfig"]['ArchipelagoPort'] = value
+                with ToggleLock:
+                    ToggleConfig["CrippleTracker"] = False
+            if key == "ArchipelagoServerURL":
+                CoreConfig["ArchipelagoConfig"]['ArchipelagoServerURL'] = value
+            elif key == "ArchipelagoPassword":
+                CoreConfig["ArchipelagoConfig"]['ArchipelagoPassword'] = value
+            elif key == "ArchipelagoTrackerURL":
+                CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'] = value
+            elif key == "ArchipelagoServerURL":
+                CoreConfig["ArchipelagoConfig"]['ArchipelagoServerURL'] = value
+            elif key == "UniqueID":
+                CoreConfig["ArchipelagoConfig"]['UniqueID'] = value
             
-        json.dump(CoreConfig, open('config.json', "w"), indent=4)
+            # Convert shared dict to regular dict for JSON serialization
+            config_for_json = {k: dict(v) if hasattr(v, 'keys') else v for k, v in CoreConfig.items()}
+            json.dump(config_for_json, open('config.json', "w"), indent=4)
 
-        #We'll reconfirm and reload the data locations since we can change values. It's no harm to reapply them all for the heck of it.
-        ConfirmDataLocations()
+        #We'll reconfirm and reload the data locations since we can change values.
+        ConfirmSpecialFiles()
         return "Key '" + key + "' set to '" + value + "'!"
 
 def ReloadBot():
-    global CrippleTracker
-    CrippleTracker = False
-    websocket_queue.put("Discord requested the bot to be reloaded!")
+    global ToggleConfig
+    ToggleConfig["CrippleTracker"] = False
+    websocket_queue.put("+++ Discord requested the bot to be reloaded!")
 
 def WriteToErrorLog(module,message):
     with open(GetCoreFiles("errorlog"), 'a') as f:
         put = "["+str(time.strftime("%Y-%m-%d-%H-%M-%S"))+"],["+module+"]," + message
         f.write(put + "\n")
-
-def ConfirmDataLocations():
-    #handled by direct calls to the GetCoreDirectory and GetCoreFiles functions
-    
-    
-    # Confirm all of the core directories and files exist
-    ConfirmSpecialFiles()
 
 def ReloadJSONPackages():
     global ArchGameJSON
@@ -1766,123 +1779,134 @@ def ReloadJSONPackages():
 async def CancelProcess():
     return 69420
 
-def Discord():
+def Discord(shared_config,toggle_config):
+    global CoreConfig
+    global ToggleConfig
+    CoreConfig = shared_config
+    ToggleConfig = toggle_config
     print("++ Starting Discord Client")
     DiscordClient.run(str(CoreConfig["DiscordConfig"]["DiscordToken"]))
 
 
 # ====== MAIN SCRIPT START ====
-# Confirm all of the core directories and files exist just to be safe
-ConfirmSpecialFiles()
-
-## Threadded async functions
-if(CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False):
-    # Start the tracker client
-    tracker_client = TrackerClient()
-    
-    # Start the tracker client in a seperate thread then sleep for 5 seconds to allow the datapackage to download.
-    try:
-        tracker_client.start()
-    except Exception as e:
-        WriteToErrorLog("TrackerClient", "Error starting tracker client: " + str(e))
-        print("!!! Tracker can't start!")
-        seppuku_queue.put("Tracker Client can't start! Seppuku initiated.")
-    time.sleep(5)
-
-    if not CheckDatapackage():
-        print("!!! Critical Error - Data package is not valid! Restarting the bot normally fixes this issue.")
-        seppuku_queue.put("Data package is not valid!")
-
-    # If there is a critical error in the tracker_client, kill the script.
-    if not seppuku_queue.empty() or not websocket_queue.empty():
-        print("!! Seppuku Initiated - Goodbye Friend")
-        exit(1)
-
-    # Since there wasn't a critical error, continue as normal :)
-    print("== Loading Arch Data...")
-
-    # Wait for game dump to be created by tracker client
-    while not CheckGameDump():
-        print(f"== waiting for {GetCoreFiles("archgamedump")} to be created on when data package is received")
-        time.sleep(2)
-
-    with open(GetCoreFiles("archgamedump"), 'r') as f:
-        ArchGameJSON = json.load(f)
-    print("== Arch Game Data Loaded!")
-
-    # Wait for connection dump to be created by tracker client
-    while not CheckConnectionDump():
-        print(f"== waiting for {GetCoreFiles("archconnectiondump")} to be created on room connection")
-        time.sleep(2)
-
-    with open(GetCoreFiles("archconnectiondump"), 'r') as f:
-        ArchConnectionJSON = json.load(f)
-    print("== Arch Connection Data Loaded!")
-
-    print("== Arch Data Loaded!")
-    time.sleep(3)
-
 # The run method is blocking, so it will keep the program running
 def main():
+    # Confirm all of the core directories and files exist just to be safe
+    ConfirmSpecialFiles()
+    
     global CoreConfig
+    global ToggleConfig
     global ReconnectionTimer
-    global ArchPort
     global DiscordClient
     global tracker_client
-    global RequestPortScan
-    DiscordThread = Process(target=Discord)
+    global ArchGameJSON
+    global ArchConnectionJSON
+
+    ## Threadded async functions
+    if(CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False):
+        # Start the tracker client
+        tracker_client = TrackerClient()
+
+        # Start the tracker client in a seperate thread then sleep for 5 seconds to allow the datapackage to download.
+        try:
+            tracker_client.start()
+        except Exception as e:
+            WriteToErrorLog("TrackerClient", "Error starting tracker client: " + str(e))
+            print("!!! Tracker can't start!")
+            seppuku_queue.put("Tracker Client can't start! Seppuku initiated.")
+        time.sleep(5)
+
+        if not CheckDatapackage():
+            print("!!! Critical Error - Data package is not valid! Restarting the bot normally fixes this issue.")
+            seppuku_queue.put("Data package is not valid!")
+
+        # If there is a critical error in the tracker_client, kill the script.
+        if not seppuku_queue.empty() or not websocket_queue.empty():
+            print("!! Early Loading Seppuku Initiated - Goodbye Friend")
+            exit(1)
+
+        # Since there wasn't a critical error, continue as normal :)
+        print("== Loading Arch Data...")
+
+        # Wait for game dump to be created by tracker client
+        while not CheckGameDump():
+            print(f"== waiting for {GetCoreFiles("archgamedump")} to be created on when data package is received")
+            time.sleep(2)
+
+        with open(GetCoreFiles("archgamedump"), 'r') as f:
+            ArchGameJSON = json.load(f)
+        print("=== Arch Game Data Loaded!")
+
+        # Wait for connection dump to be created by tracker client
+        while not CheckConnectionDump():
+            print(f"== waiting for {GetCoreFiles("archconnectiondump")} to be created on room connection")
+            time.sleep(2)
+
+        with open(GetCoreFiles("archconnectiondump"), 'r') as f:
+            ArchConnectionJSON = json.load(f)
+        print("=== Arch Connection Data Loaded!")
+
+        print("== Arch Data Loaded!")
+        time.sleep(3)
+
+    DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig))
     DiscordThread.start()
 
     DiscordCycleCount = 0
     TrackerCycleCount = 0
     
-    global CrippleTracker
-    CrippleTracker = False
-
-    if not seppuku_queue.empty():
-        print("!!! Critical Error Detected !!!")
-        print("Seppuku Initiated - Goodbye Friend")
-        exit(1)
-
+    ToggleConfig["CrippleTracker"] = True
+    
     ## Gotta keep the bot running!
     while True:
         
         print(CoreConfig["ArchipelagoConfig"]["ArchipelagoPort"])
+        print(ToggleConfig["CrippleTracker"])
         
-        if TrackerCycleCount >= 7:
+        if TrackerCycleCount >= 3:
             print("!!! Tracker has crtically failed to restart multiple times")
             print("!!! Exiting for manual intervention")
             MessageObject = {"type": "CORE", "data": {"text": "[CORE]: ERROR - Tracker has crtically failed to restart multiple times. Manual intervention required."}, "flag": "ERROR"}
             chat_queue.put(MessageObject)
-            CrippleTracker = True
+            ToggleConfig["CrippleTracker"] = True
             TrackerCycleCount = 0
         
-        if (CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False) and (not tracker_client.socket_thread.is_alive() or not websocket_queue.empty() or not seppuku_queue.empty()) and not CrippleTracker:
-            print("-- Tracker is not running, requested a restart, or has failed, so we do the needful")
-            
-            if not seppuku_queue.empty():
-                print("-- Tracker commited Seppuku, Requesting new port information")
-                print("-- Sleeping for 5 seconds to allow DiscordBot to process PortScan")
-                RequestPortScan = True
-                time.sleep(5)
-                TrackerCycleCount = TrackerCycleCount + 1
-            
-            while not websocket_queue.empty():
-                SQMessage = websocket_queue.get()
-                print("-- clearing websocket queue -- ", SQMessage)
-            while not seppuku_queue.empty():
-                SQMessage = seppuku_queue.get()
-                print("-- clearing seppuku queue -- ", SQMessage)
+        
+        if (CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False):
+            if not ToggleConfig["CrippleTracker"]:
+                print("~~ Tracker is not crippled")    
+                if not tracker_client.socket_thread.is_alive() or not websocket_queue.empty() or not seppuku_queue.empty():
+                    print("-- Tracker is not running, requested a restart, or has failed, so we do the needful")
 
-            print("-- Stopping Tracker...")
-            tracker_client.stop()
-            print("-- Sleeping for 3 seconds to allow the tracker to close")
-            time.sleep(3)
-            print("-- Restarting tracker client...")
-            tracker_client.start()
-            time.sleep(3)
+                    if not seppuku_queue.empty():
+                        print("-- Tracker commited Seppuku, Requesting new port information")
+                        print("-- Sleeping for 5 seconds to allow DiscordBot to process PortScan")
+                        with ToggleLock:
+                            ToggleConfig["RequestPortScan"] = True
+                        time.sleep(5)
+                        TrackerCycleCount = TrackerCycleCount + 1
+
+                    while not websocket_queue.empty():
+                        SQMessage = websocket_queue.get()
+                        print("-- clearing websocket queue -- ", SQMessage)
+                    while not seppuku_queue.empty():
+                        SQMessage = seppuku_queue.get()
+                        print("-- clearing seppuku queue -- ", SQMessage)
+
+                    print("-- Stopping Tracker...")
+                    tracker_client.stop()
+                    print("-- Sleeping for 3 seconds to allow the tracker to close")
+                    time.sleep(3)
+                    print("-- Restarting tracker client...")
+                    tracker_client.start()
+                    time.sleep(3)
+                else:
+                    print("~~ tracker is alive/running normally")
+            else:
+                print("~~ Tracker is crippled, skipping tracker restart")
         else:
-            TrackerCycleCount = 0
+            print("~~ Discord Join Only mode is enabled, skipping tracker management")
+
 
         if not CoreConfig["AdvancedConfig"]["CycleDiscord"] == 0:
             DiscordCycleCount = DiscordCycleCount + 1
@@ -1898,7 +1922,7 @@ def main():
                 time.sleep(3)
 
                 print("++ Starting the discord thread again")
-                DiscordThread = Process(target=Discord)
+                DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig))
                 DiscordThread.start()
                 DiscordCycleCount = 0
         
@@ -1909,7 +1933,7 @@ def main():
             print("++ Sleeping for 3 seconds to allow the discord thread to close")
             time.sleep(3)
             print("++ Starting the discord thread again")
-            DiscordThread = Process(target=Discord)
+            DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig))
             DiscordThread.start()
             
         if not hint_queue.empty():
