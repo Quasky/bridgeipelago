@@ -1076,8 +1076,6 @@ async def Command_KetchMeUp(User, message_filter):
                     Location = line.split("||")[3].strip()
                     Class = line.split("||")[4].strip()
 
-                    print(Class)
-                    print(message_filter)
                     if ItemFilter(int(Class),int(message_filter)):
                         ketchupmessage = ketchupmessage + You.ljust(YouWidth) + " || " + Item.ljust(ItemWidth) + " || " + Sender.ljust(SenderWidth) + " || " + Location + "\n"
 
@@ -1855,14 +1853,8 @@ def main():
     DiscordCycleCount = 0
     TrackerCycleCount = 0
     
-    ToggleConfig["CrippleTracker"] = True
-    
     ## Gotta keep the bot running!
     while True:
-        
-        print(CoreConfig["ArchipelagoConfig"]["ArchipelagoPort"])
-        print(ToggleConfig["CrippleTracker"])
-        
         if TrackerCycleCount >= 3:
             print("!!! Tracker has crtically failed to restart multiple times")
             print("!!! Exiting for manual intervention")
@@ -1871,10 +1863,8 @@ def main():
             ToggleConfig["CrippleTracker"] = True
             TrackerCycleCount = 0
         
-        
         if (CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False):
-            if not ToggleConfig["CrippleTracker"]:
-                print("~~ Tracker is not crippled")    
+            if not ToggleConfig["CrippleTracker"]:  
                 if not tracker_client.socket_thread.is_alive() or not websocket_queue.empty() or not seppuku_queue.empty():
                     print("-- Tracker is not running, requested a restart, or has failed, so we do the needful")
 
@@ -1900,13 +1890,6 @@ def main():
                     print("-- Restarting tracker client...")
                     tracker_client.start()
                     time.sleep(3)
-                else:
-                    print("~~ tracker is alive/running normally")
-            else:
-                print("~~ Tracker is crippled, skipping tracker restart")
-        else:
-            print("~~ Discord Join Only mode is enabled, skipping tracker management")
-
 
         if not CoreConfig["AdvancedConfig"]["CycleDiscord"] == 0:
             DiscordCycleCount = DiscordCycleCount + 1
