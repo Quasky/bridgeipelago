@@ -835,49 +835,50 @@ async def ProcessChatQueue():
                         #print(FinishedHintMessage)
                         await SendMainChannelMessage(FinishedHintMessage)
             elif Message['type'] == "APMessage":
-                MessageMessage = Message['data']['message'].lower()
-                MessageText = Message['data']['data'][0]['text']
-                if (MessageText).startswith(CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']):
-                    await CancelProcess()
-                elif not Message['data']['message'].lower().startswith("!"):
-                    await SendMainChannelMessage(MessageText) 
-                else:
-                    if CoreConfig["RelayConfig"]["APClientHelp"] == True and MessageMessage.startswith("!help"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientLicense"] == True and MessageMessage.startswith("!license"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientCountdown"] == True and MessageMessage.startswith("!countdown"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientOptions"] == True and MessageMessage.startswith("!options"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientAdmin"] == True and MessageMessage.startswith("!admin"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientPlayers"] == True and MessageMessage.startswith("!players"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientStatus"] == True and MessageMessage.startswith("!status"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientRelease"] == True and MessageMessage.startswith("!release"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientCollect"] == True and MessageMessage.startswith("!collect"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientRemaining"] == True and MessageMessage.startswith("!remaining"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientMissing"] == True and MessageMessage.startswith("!missing"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientChecked"] == True and MessageMessage.startswith("!checked"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientAlias"] == True and MessageMessage.startswith("!alias"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientGetItem"] == True and MessageMessage.startswith("!getitem"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientHint"] == True and MessageMessage.startswith("!hint"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientHintLocation"] == True and MessageMessage.startswith("!hint_location"):
-                        await SendMainChannelMessage(MessageText)
-                    elif CoreConfig["RelayConfig"]["APClientVideo"] == True and MessageMessage.startswith("!video"):
-                        await SendMainChannelMessage(MessageText)
-                    else:
+                if Message['data']['type'] == 'Chat':
+                    MessageMessage = Message['data']['message'].lower()
+                    MessageText = Message['data']['data'][0]['text']
+                    if (MessageText).startswith(CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']):
                         await CancelProcess()
+                    elif not MessageMessage.startswith("!"):
+                        await SendMainChannelMessage(MessageText) 
+                    else:
+                        if CoreConfig["RelayConfig"]["APClientHelp"] == True and MessageMessage.startswith("!help"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientLicense"] == True and MessageMessage.startswith("!license"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientCountdown"] == True and MessageMessage.startswith("!countdown"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientOptions"] == True and MessageMessage.startswith("!options"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientAdmin"] == True and MessageMessage.startswith("!admin"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientPlayers"] == True and MessageMessage.startswith("!players"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientStatus"] == True and MessageMessage.startswith("!status"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientRelease"] == True and MessageMessage.startswith("!release"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientCollect"] == True and MessageMessage.startswith("!collect"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientRemaining"] == True and MessageMessage.startswith("!remaining"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientMissing"] == True and MessageMessage.startswith("!missing"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientChecked"] == True and MessageMessage.startswith("!checked"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientAlias"] == True and MessageMessage.startswith("!alias"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientGetItem"] == True and MessageMessage.startswith("!getitem"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientHint"] == True and MessageMessage.startswith("!hint"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientHintLocation"] == True and MessageMessage.startswith("!hint_location"):
+                            await SendMainChannelMessage(MessageText)
+                        elif CoreConfig["RelayConfig"]["APClientVideo"] == True and MessageMessage.startswith("!video"):
+                            await SendMainChannelMessage(MessageText)
+                else:
+                    await SendMainChannelMessage(Message['data']['data'][0]['text'])  
             else:
                 WriteToErrorLog("ChatQueue", "Unknown chat message type received: " + str(Message))
     except Exception as e:
