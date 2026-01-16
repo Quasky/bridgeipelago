@@ -640,7 +640,7 @@ async def CheckArchHost():
             RoomPage = requests.get(RoomAPI)
             RoomData = json.loads(RoomPage.content)
 
-            cond = str(RoomData["last_port"])
+            cond = int(RoomData["last_port"])
             if(cond == CoreConfig["ArchipelagoConfig"]['ArchipelagoPort']):
                 return
             else:
@@ -650,7 +650,7 @@ async def CheckArchHost():
                 message = "Port Check Failed.  New port is " + str(RoomData["last_port"]) + "."
                 #await MainChannel.send(message)
                 await DebugChannel.send(message)
-                SetEnvVariable("ArchipelagoPort", str(RoomData["last_port"]))
+                SetEnvVariable("ArchipelagoPort", int(RoomData["last_port"]))
         except Exception as e:
             WriteToErrorLog("CheckArchHost", "Error occurred while checking ArchHost: " + str(e))
             await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
