@@ -337,7 +337,7 @@ class TrackerClient:
         try:
             self.is_closed.clear()
             self.ap_connection = connect(
-                f'{self.server_uri}:{self.port}',
+                f'{self.server_uri}:{CoreConfig["ArchipelagoConfig"]['ArchipelagoPort']}',
                 max_size=None,
                 **self.ap_connection_kwargs
             )
