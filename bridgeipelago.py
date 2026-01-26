@@ -592,7 +592,7 @@ async def on_message(message):
 
     if message.content.startswith('$setconfig'):
         pair = ((message.content).split('$setconfig '))[1].split(' ')
-        rtrnmessage = SetEnvVariable(pair[0], pair[1])
+        rtrnmessage = SetConfigVariable(pair[0], pair[1])
         await SendMainChannelMessage(rtrnmessage)
 
     if message.content.startswith('$reloadtracker'):
@@ -602,10 +602,6 @@ async def on_message(message):
     if message.content.startswith('$reloaddiscord'):
         discordseppuku_queue.put("Reloading Discord bot...")
         await SendMainChannelMessage("Reloading Discord bot... Please wait.")
-
-    if message.content.startswith('$reloaddata'):
-        ReloadJSONPackages()
-        await SendMainChannelMessage("Reloading datavars... Please wait 2-3 seconds.")
 
     if not message.content.startswith('$') and CoreConfig["DrawbridgeConfig"]["DiscordBridgeEnabled"] == True:
         relayed_message = "(Discord) " + str(message.author) + " - " + str(message.content)
@@ -658,7 +654,7 @@ async def CheckArchHost():
                 message = "Port Check Failed.  New port is " + str(RoomData["last_port"]) + "."
                 #await MainChannel.send(message)
                 await DebugChannel.send(message)
-                SetEnvVariable("ArchipelagoPort", int(RoomData["last_port"]))
+                SetConfigVariable("ArchipelagoPort", int(RoomData["last_port"]))
         except Exception as e:
             WriteToErrorLog("CheckArchHost", "Error occurred while checking ArchHost: " + str(e))
             await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
@@ -1598,27 +1594,39 @@ def CheckConnectionDump():
         return False
 
 def LookupItem(game,id):
-    for key in ArchGameJSON[game]['item_name_to_id']:
-        if str(ArchGameJSON[game]['item_name_to_id'][key]) == str(id):
+    with open(GetCoreFiles("archgamedump"), 'r') as f:
+        _ArchGameJSON = json.load(f)
+    
+    for key in _ArchGameJSON[game]['item_name_to_id']:
+        if str(_ArchGameJSON[game]['item_name_to_id'][key]) == str(id):
             return str(key)
     return str("NULL")
     
 def LookupLocation(game,id):
-    for key in ArchGameJSON[game]['location_name_to_id']:
-        if str(ArchGameJSON[game]['location_name_to_id'][key]) == str(id):
+    with open(GetCoreFiles("archgamedump"), 'r') as f:
+        _ArchGameJSON = json.load(f)
+        
+    for key in _ArchGameJSON[game]['location_name_to_id']:
+        if str(_ArchGameJSON[game]['location_name_to_id'][key]) == str(id):
             return str(key)
     return str("NULL")
 
 def LookupSlot(slot):
-    for key in ArchConnectionJSON['slot_info']:
+    with open(GetCoreFiles("archconnectiondump"), 'r') as f:
+        _ArchConnectionJSON = json.load(f)
+    
+    for key in _ArchConnectionJSON['slot_info']:
         if key == slot:
-            return str(ArchConnectionJSON['slot_info'][key]['name'])
+            return str(_ArchConnectionJSON['slot_info'][key]['name'])
     return str("NULL")
 
 def LookupGame(slot):
-    for key in ArchConnectionJSON['slot_info']:
+    with open(GetCoreFiles("archconnectiondump"), 'r') as f:
+        _ArchConnectionJSON = json.load(f)
+        
+    for key in _ArchConnectionJSON['slot_info']:
         if key == slot:
-            return str(ArchConnectionJSON['slot_info'][key]['game'])
+            return str(_ArchConnectionJSON['slot_info'][key]['game'])
     return str("NULL")
 
 def CheckSnoozeStatus(slot):
@@ -1733,7 +1741,7 @@ def SpecialFormat(text,color,format):
     itext =  "\u001b[" + str(iformat) + ";" + str(icolor) + "m" + text + "\u001b[0m"
     return itext
 
-def SetEnvVariable(key, value):
+def SetConfigVariable(key, value):
     global CoreConfig, ToggleConfig, ConfigLock, ToggleLock
     if key not in ["ArchipelagoPort","ArchipelagoPassword","ArchipelagoTrackerURL","ArchipelagoServerURL","UniqueID"]:
         return "Invalid key. Only 'ArchipelagoPort', 'ArchipelagoPassword', 'ArchipelagoTrackerURL', 'ArchipelagoServerURL', and 'UniqueID' can be set."
@@ -1772,17 +1780,6 @@ def WriteToErrorLog(module,message):
         put = "["+str(time.strftime("%Y-%m-%d-%H-%M-%S"))+"],["+module+"]," + message
         f.write(put + "\n")
 
-def ReloadJSONPackages():
-    global ArchGameJSON
-    global ArchConnectionJSON
-
-    with open(GetCoreFiles("archgamedump"), 'r') as f:
-        ArchGameJSON = json.load(f)
-
-    with open(GetCoreFiles("archconnectiondump"), 'r') as f:
-        ArchConnectionJSON = json.load(f)
-
-
 async def CancelProcess():
     return 69420
 
@@ -1806,8 +1803,6 @@ def main():
     global ReconnectionTimer
     global DiscordClient
     global tracker_client
-    global ArchGameJSON
-    global ArchConnectionJSON
 
     ## Threadded async functions
     if(CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False):
@@ -1840,18 +1835,10 @@ def main():
             print(f"== waiting for {GetCoreFiles("archgamedump")} to be created on when data package is received")
             time.sleep(2)
 
-        with open(GetCoreFiles("archgamedump"), 'r') as f:
-            ArchGameJSON = json.load(f)
-        print("=== Arch Game Data Loaded!")
-
         # Wait for connection dump to be created by tracker client
         while not CheckConnectionDump():
             print(f"== waiting for {GetCoreFiles("archconnectiondump")} to be created on room connection")
             time.sleep(2)
-
-        with open(GetCoreFiles("archconnectiondump"), 'r') as f:
-            ArchConnectionJSON = json.load(f)
-        print("=== Arch Connection Data Loaded!")
 
         print("== Arch Data Loaded!")
         time.sleep(3)
