@@ -113,76 +113,76 @@ Hopefully that makes sense.
 |Key|Description|
 |---|---|
 |**Discord Config**||
-|DiscordToken|Your Discord Bot's token|
-|DiscordBroadcastChannel|Discord Channel ID for live-check purposes|
-|DiscordAlertUserID|Discord User/Group ID for yelling about issues [1]|
-|DiscordDebugChannel|Discord channel ID for debug purposes|
+|`DiscordToken`|Your Discord Bot's token|
+|`DiscordBroadcastChannel`|Discord Channel ID for live-check purposes|
+|`DiscordAlertUserID`|Discord User/Group ID for yelling about issues [1]|
+|`DiscordDebugChannel`|Discord channel ID for debug purposes|
 |||
 |**Archipelago Config**||
-|ArchipelagoServer|The URL of the Archipelago server you'd like to connect to|
-|ArchipelagoPort|The port of the Archipelago server you'd like to connect to|
-|ArchipelagoPassword|The password of the Archipelago sroom you'd like to connect to|
-|ArchipelagoBotSlot|The name of the slot you'd like the bot to use when connecting to archipelago|
-|ArchipelagoTrackerURL|URL of the tracker you'd like to query|
-|ArchipelagoServerURL|URL of the server you'd like to query|
-|UniqueID|This UniqueID will sort all the game data into a key'd folder so you can swap between rooms via discord [2]|
+|`ArchipelagoServer`|The URL of the Archipelago server you'd like to connect to|
+|`ArchipelagoPort`|The port of the Archipelago server you'd like to connect to|
+|`ArchipelagoPassword`|The password of the Archipelago sroom you'd like to connect to|
+|`ArchipelagoBotSlot`|The name of the slot you'd like the bot to use when connecting to archipelago|
+|`ArchipelagoTrackerURL`|URL of the tracker you'd like to query|
+|`ArchipelagoServerURL`|URL of the server you'd like to query|
+|`UniqueID`|This UniqueID will sort all the game data into a key'd folder so you can swap between rooms via discord [2]|
 |||
 |**Item Filter Config**||
-|BotItemSpoilTraps|The Bot will spoil traps by posting them in chat and ketchmeup [3]|
-|BotItemFilterLevel|Sets the bot filter level 0 - 1 - 2, to exclude items from discord posts [3]|
+|`BotItemSpoilTraps`|The Bot will spoil traps by posting them in chat and ketchmeup [3]|
+|`BotItemFilterLevel`|Sets the bot filter level `0` - `1` - `2`, to exclude items from discord posts [3]|
 ||All items are still be queued for ketchmeup|
-||2 - Only Logical Progression Items|
-||1 - Logical + Useful items|
-||0 - Logical + Useful + Normal items|
+||`2` - Only Logical Progression Items|
+||`1` - Logical + Useful items|
+||`0` - Logical + Useful + Normal items|
 |||
 |**Relay Config**||
-|ChatMessages|Will relay chat messages (This also includes any ! messages, eg. !hint, !release, !collect)|
-|ServerChatMessages|Will relay server chat messages|
-|GoalMessages|Will relay goal messages|
-|ReleaseMessages|Will relay release messages|
-|CollectMessages|Will relay collect messages|
-|CountdownMessages|Will relay server coutndown messages|
-|DeathlinkMessages|Will relay deathlink messages|
-|APClientHelp|Will relay `!help` to discord|
-|APClientLicense|Will relay `!License` to discord|
-|APClientCountdown|etc...|
-|APClientOptions|etc...|
-|APClientAdmin||
-|APClientPlayers||
-|APClientStatus||
-|APClientRelease||
-|APClientCollect||
-|APClientRemaining||
-|APClientMissing||
-|APClientChecked||
-|APClientAlias||
-|APClientGetItem||
-|APClientHint||
-|APClientHintLocation||
-|APClientVideo|You get the idea. :)|
+|`ChatMessages`|Will relay chat messages (This also includes any ! messages, eg. !hint, !release, !collect)|
+|`ServerChatMessages`|Will relay server chat messages|
+|`GoalMessages`|Will relay goal messages|
+|`ReleaseMessages`|Will relay release messages|
+|`CollectMessages`|Will relay collect messages|
+|`CountdownMessages`|Will relay server coutndown messages|
+|`DeathlinkMessages`|Will relay deathlink messages|
+|`APClientHelp`|Will relay `!help` to discord|
+|`APClientLicense`|Will relay `!License` to discord|
+|`APClientCountdown`|etc...|
+|`APClientOptions`|etc...|
+|`APClientAdmin`||
+|`APClientPlayers`||
+|`APClientStatus`||
+|`APClientRelease`||
+|`APClientCollect`||
+|`APClientRemaining`||
+|`APClientMissing`||
+|`APClientChecked`||
+|`APClientAlias`||
+|`APClientGetItem`||
+|`APClientHint`||
+|`APClientHintLocation`||
+|`APClientVideo`|You get the idea. :)|
 |||
 |**Drawbridge Config**||
-|DiscordBridgeEnabled|Will toggle the ability to send messages to AP from Discord|
+|`DiscordBridgeEnabled`|Will toggle the ability to send messages to AP from Discord|
 |||
 |**Meta Config**||
-|FlavorDeathLink|Will change deathlink messages to have a little more personality [4]|
-|DeathLinkLottery|Unused... for now >:) |
+|`FlavorDeathLink`|Will change deathlink messages to have a little more personality [4]|
+|`DeathLinkLottery`|Unused... for now >:) |
 |||
 |**Advanced Config**||
-|LoggingDirectory|Directory of the bot's own logs [5]|
-|PlayerRegistrationDirectory|Directory of the Player Registration Mappings [5]|
-|PlayerItemQueueDirectory|Directory that stores player item queues [5]|
-|ArchipelagoDataDirectory|Directory for the Archipelago data packages [5]|
-|QueueOverclock|The speed the bot will process messages|
+|`LoggingDirectory`|Directory of the bot's own logs [5]|
+|`PlayerRegistrationDirectory`|Directory of the Player Registration Mappings [5]|
+|`PlayerItemQueueDirectory`|Directory that stores player item queues [5]|
+|`ArchipelagoDataDirectory`|Directory for the Archipelago data packages [5]|
+|`QueueOverclock`|The speed the bot will process messages|
 ||1 - 1/second (default)|
 ||0.5 - 2/second|
 ||0.2 - 5/second|
 ||0.1 - 10/second|
-|SnoozeCompletedGames|Enables skipping posting items to discord FOR completed games|
-|JoinMessage|A custom join message (console only) for the bot|
-|DebugMode|Enables extra debug chat/bot options [6]|
-|SelfHostNoWeb|Disabled WebHost-specific functionality for self-hosted games with no WebHost module|
-|CycleDiscord|Setting to a value above 0 will restart the discord process every X seconds|
+|`SnoozeCompletedGames`|Enables skipping posting items to discord FOR completed games|
+|`JoinMessage`|A custom join message (console only) for the bot|
+|`DebugMode`|Enables extra debug chat/bot options [6]|
+|`SelfHostNoWeb`|Disabled WebHost-specific functionality for self-hosted games with no WebHost module|
+|`CycleDiscord`|Setting to a value above 0 will restart the discord process every X seconds|
 
 **\[1] For group IDs, ensure the '&' character is at the beggining of the ID** 
 
