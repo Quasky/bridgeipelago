@@ -22,6 +22,7 @@ import json
 import typing
 import uuid
 import os
+import sys
 from enum import Enum
 import logging
 
@@ -52,12 +53,19 @@ import time
 # Global Configuration Loader
 ## This allows us to share the config across multiple processes/threads without issue
 try:
+    print("== Initilizing ConfigManager")
+    if len(sys.argv) > 1 and sys.argv[1]:
+        config = sys.argv[1]
+    else:
+        config = 'config.json'
+    print("== Reading config from: " + config)
+    
     # Initialize multiprocessing manager
     ConfigManager = Manager()
     ConfigLock = ConfigManager.RLock()
     
     # Load CoreConfig with our config.json
-    config_data = json.loads(open('config.json').read())
+    config_data = json.loads(open(config).read())
     CoreConfig = ConfigManager.dict(config_data)
     
     # Convert nested dictionaries to manager dicts for full sharing
