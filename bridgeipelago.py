@@ -27,7 +27,7 @@ import logging
 
 #Threading Dependencies
 from threading import Thread, Event
-from multiprocessing import Queue, Process, Manager
+from multiprocessing import Queue, Process, Manager, freeze_support
 
 #Plotting Dependencies
 from matplotlib import pyplot as plt
@@ -1938,7 +1938,8 @@ def main():
             print("   Closing Bot Thread - Have a good day :)")
             exit(1)
 
-if __name__ == '__main__': 
+if __name__ == '__main__':
+    freeze_support()
     main()
 
 # On 7/12/2024 Bridgeipelago crashed the AP servers and caused Berserker to give me a code review:
