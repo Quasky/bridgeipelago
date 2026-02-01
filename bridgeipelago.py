@@ -50,46 +50,58 @@ import discord
 from discord import app_commands
 import time
 
+global CoreConfig
+global ConfigLock
+global ToggleConfig
+global ToggleLock
+
 # Global Configuration Loader
 ## This allows us to share the config across multiple processes/threads without issue
-try:
-    print("== Initilizing ConfigManager")
-    if len(sys.argv) > 1 and sys.argv[1]:
-        config = sys.argv[1]
-    else:
-        config = 'config.json'
-    print("== Reading config from: " + config)
+def GenerateConfigManagers():
+    global CoreConfig
+    global ConfigLock
+    global ToggleConfig
+    global ToggleLock
     
-    # Initialize multiprocessing manager
-    ConfigManager = Manager()
-    ConfigLock = ConfigManager.RLock()
-    
-    # Load CoreConfig with our config.json
-    config_data = json.loads(open(config).read())
-    CoreConfig = ConfigManager.dict(config_data)
-    
-    # Convert nested dictionaries to manager dicts for full sharing
-    for key, value in config_data.items():
-        if isinstance(value, dict):
-            CoreConfig[key] = ConfigManager.dict(value)       
-except Exception as e:
-    print("!!! Error loading config.json / Setting up ConfigManager:\n" + str(e))
-    exit()
-    
-# Global Toggle Loader
-## This allows us to share the event bools across multiple processes/threads without issue
-try:
-    # Initialize multiprocessing manager
-    ToggleManager = Manager()
-    ToggleLock = ToggleManager.RLock()
-    ToggleConfig = ToggleManager.dict({"CrippleTracker": False, "RequestPortScan": False})      
-except Exception as e:
-    print("!!! Error setting up ToggleManager:\n" + str(e))
-    exit()
+    try:
+        print("== Initilizing ConfigManager")
+        if len(sys.argv) > 1 and sys.argv[1]:
+            config = sys.argv[1]
+        else:
+            config = 'config.json'
+        print("== Reading config from: " + config)
 
-# Metadata
+        # Initialize multiprocessing manager
+        ConfigManager = Manager()
+        ConfigLock = ConfigManager.RLock()
+
+        # Load CoreConfig with our config.json
+        config_data = json.loads(open(config).read())
+        CoreConfig = ConfigManager.dict(config_data)
+
+        # Convert nested dictionaries to manager dicts for full sharing
+        for key, value in config_data.items():
+            if isinstance(value, dict):
+                CoreConfig[key] = ConfigManager.dict(value)
+    except Exception as e:
+        print("!!! Error loading config.json / Setting up ConfigManager:\n" + str(e))
+        exit()
+
+    # Global Toggle Loader
+    ## This allows us to share the event bools across multiple processes/threads without issue
+    try:
+        # Initialize multiprocessing manager
+        ToggleManager = Manager()
+        ToggleLock = ToggleManager.RLock()
+        ToggleConfig = ToggleManager.dict({"CrippleTracker": False, "RequestPortScan": False})
+    except Exception as e:
+        print("!!! Error setting up ToggleManager:\n" + str(e))
+        exit()
+
+# Core Filepath Functions
 def GetCoreDirectory(folder):
     global CoreConfig
+    global ConfigLock
     if folder == "log":
         return str(os.getcwd() + CoreConfig["AdvancedConfig"]["LoggingDirectory"] + CoreConfig["ArchipelagoConfig"]['UniqueID'] + '/')
     elif folder == "reg":
@@ -101,6 +113,7 @@ def GetCoreDirectory(folder):
     
 def GetCoreFiles(file):
     global CoreConfig
+    global ConfigLock
     if file == "botlog":
         return GetCoreDirectory("log") + 'BotLog.txt'
     elif file == "errorlog":
@@ -124,24 +137,24 @@ def GetCoreFiles(file):
     elif file == "archstatus":
         return GetCoreDirectory("arch") + 'ArchStatus.json'
 
-# Debugging Logger Setup
-if CoreConfig["AdvancedConfig"]["DebugMode"] == True:
-    print("++ Debug Mode Enabled - Writing Websocket debug log to " + GetCoreFiles("debuglog"))
-    logging.basicConfig(
-        filename=GetCoreFiles("debuglog"),
-        format="%(asctime)s %(message)s",
-        level=logging.DEBUG,
-    )
-    logger = logging.getLogger("websockets")
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(logging.StreamHandler())
+def SetupLogger():
+    global CoreConfig
+    global ConfigLock
+    # Debugging Logger Setup
+    if CoreConfig["AdvancedConfig"]["DebugMode"] == True:
+        print("++ Debug Mode Enabled - Writing Websocket debug log to " + GetCoreFiles("debuglog"))
+        logging.basicConfig(
+            filename=GetCoreFiles("debuglog"),
+            format="%(asctime)s %(message)s",
+            level=logging.DEBUG,
+        )
+        logger = logging.getLogger("websockets")
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler())
 
 # Global Variable Declaration
-ArchGameJSON = []
-ArchConnectionJSON = []
 ReconnectionTimer = 5
-
-DiscordClient = None
+discord_client = None
 tracker_client = None
 
 ## These are the main queues for processing data from the Archipelago Tracker to the Discord Bot
@@ -159,32 +172,34 @@ discordbridge_queue = Queue()
 hint_queue = Queue()
 hintprocessing_queue = Queue()
 
-# Version Checking against GitHub
-try:
-    BPversion = "pre-v3.0.0"
-    GHAPIjson = json.loads(requests.get("https://api.github.com/repos/Quasky/bridgeipelago/releases/latest").content)
-    if(GHAPIjson["tag_name"] != BPversion):
-        print("You are not running the current release of Bridgeipelago.")
-        print("The current version is: " + GHAPIjson["tag_name"] + " -- You are running: " + BPversion)
-except:
-    print("Unable to query GitHub API for Bridgeipelago version!")
-
 #Discord Bot Initialization
 intents = discord.Intents.default()
 intents.message_content = True
-DiscordClient = discord.Client(intents=intents)
-tree = app_commands.CommandTree(DiscordClient)
-
+discord_client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(discord_client)
+try:
+    if len(sys.argv) > 1 and sys.argv[1]:
+        config = sys.argv[1]
+    else:
+        config = 'config.json'
+    OverClockValue = (json.load(open(config, 'r')))["AdvancedConfig"]["QueueOverclock"]
+except Exception as e:
+    print("!!! Unable to load Overclock value from config, defaulting to 1 second.")
+    print("!!! Error: " + str(e))
+    OverClockValue = 1
 #TO DO - Central Control for bot I'll just leave this in for now.
 DiscordGuildID = 1171964435741544498
 
-# Load Meta Modules if they are enabled in the config
-if CoreConfig["MetaConfig"]["FlavorDeathlink"] == True:
-    from modules.DeathlinkFlavor import GetFlavorText
+#Optionaly Load in Meta Modules
+def LoadMetaModules():
+    # Load Meta Modules if they are enabled in the config
+    if CoreConfig["MetaConfig"]["FlavorDeathlink"] == True:
+        from modules.DeathlinkFlavor import GetFlavorText
 
 ## ARCHIPELAGO TRACKER CLIENT + CORE FUNCTION
-class TrackerClient:
+class TrackerClient():
     global CoreConfig
+    global ConfigLock
     tags: set[str] = {'TextOnly','Tracker', 'DeathLink'}
     version: dict[str, any] = {"major": 0, "minor": 6, "build": 0, "class": "Version"}
     items_handling: int = 0b000  # This client does not receive any items
@@ -343,9 +358,10 @@ class TrackerClient:
     def start(self) -> None:
         print("-- Attempting to open an Archipelago MultiServer websocket connection in a new thread.")
         try:
+            _ConnectionString = str(CoreConfig["ArchipelagoConfig"]['ArchipelagoServer']) + ":" + str(CoreConfig["ArchipelagoConfig"]['ArchipelagoPort'])
             self.is_closed.clear()
             self.ap_connection = connect(
-                f'{self.server_uri}:{CoreConfig["ArchipelagoConfig"]['ArchipelagoPort']}',
+                _ConnectionString,
                 max_size=None,
                 **self.ap_connection_kwargs
             )
@@ -358,7 +374,7 @@ class TrackerClient:
             print(e)
             websocket_queue.put("!! Tracker start error...")
 
-
+## ARCHIPELAGO HINT CLIENT + CORE FUNCTION
 class HintClient:
     global CoreConfig
     tags: set[str] = {'TextOnly'}
@@ -479,8 +495,9 @@ class HintClient:
     def start(self) -> None:
         print("-- Attempting to open an HintClient connection in a new thread.")
         try:
+            _ConnectionString = str(CoreConfig["ArchipelagoConfig"]['ArchipelagoServer']) + ":" + str(CoreConfig["ArchipelagoConfig"]['ArchipelagoPort'])
             self.ap_connection = connect(
-                f'{self.server_uri}:{self.port}',
+                _ConnectionString,
                 max_size=None,
                 **self.ap_connection_kwargs
             )
@@ -504,13 +521,13 @@ class HintClient:
 
 
 ## DISCORD EVENT HANDLERS + CORE FUNTION
-@DiscordClient.event
+@discord_client.event
 async def on_ready():
     global MainChannel
-    MainChannel = DiscordClient.get_channel(int(CoreConfig["DiscordConfig"]["DiscordBroadcastChannel"]))
+    MainChannel = discord_client.get_channel(int(CoreConfig["DiscordConfig"]["DiscordBroadcastChannel"]))
     #await MainChannel.send('Bot connected. Battle control - Online.')
     global DebugChannel
-    DebugChannel = DiscordClient.get_channel(int(CoreConfig["DiscordConfig"]["DiscordDebugChannel"]))
+    DebugChannel = discord_client.get_channel(int(CoreConfig["DiscordConfig"]["DiscordDebugChannel"]))
     await DebugChannel.send('Bot connected. Debug control - Online.')
 
     # We wont sync the command tree for now, need to roll out central control first.
@@ -524,11 +541,11 @@ async def on_ready():
     CheckCommandQueue.start()
 
     print("++ ",CoreConfig["AdvancedConfig"]["JoinMessage"])
-    print("++ Async bot started -", DiscordClient.user)
+    print("++ Async bot started -", discord_client.user)
 
-@DiscordClient.event
+@discord_client.event
 async def on_message(message):
-    if message.author == DiscordClient.user:
+    if message.author == discord_client.user:
         return
     
     if message.channel.id != MainChannel.id:
@@ -659,7 +676,7 @@ async def CheckArchHost():
             WriteToErrorLog("CheckArchHost", "Error occurred while checking ArchHost: " + str(e))
             await DebugChannel.send("ERROR IN CHECKARCHHOST <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
 
-@tasks.loop(seconds=float(CoreConfig["AdvancedConfig"]["QueueOverclock"]))
+@tasks.loop(seconds=float(OverClockValue))
 async def ProcessItemQueue():
     try:
         if item_queue.empty():
@@ -741,7 +758,7 @@ async def ProcessItemQueue():
         print(e)
         await SendDebugChannelMessage("Error In Item Queue Process")
 
-@tasks.loop(seconds=float(CoreConfig["AdvancedConfig"]["QueueOverclock"]))
+@tasks.loop(seconds=float(OverClockValue))
 async def ProcessDeathQueue():
     if death_queue.empty():
         return
@@ -763,7 +780,7 @@ async def ProcessDeathQueue():
         else:
             return
 
-@tasks.loop(seconds=float(CoreConfig["AdvancedConfig"]["QueueOverclock"]))
+@tasks.loop(seconds=float(OverClockValue))
 async def ProcessChatQueue():
     # Messages are passed to the chat queue in the following format:
     #
@@ -1789,20 +1806,39 @@ def Discord(shared_config,toggle_config):
     CoreConfig = shared_config
     ToggleConfig = toggle_config
     print("++ Starting Discord Client")
-    DiscordClient.run(str(CoreConfig["DiscordConfig"]["DiscordToken"]))
+    discord_client.run(str(CoreConfig["DiscordConfig"]["DiscordToken"]))
 
 
 # ====== MAIN SCRIPT START ====
 # The run method is blocking, so it will keep the program running
 def main():
+    global CoreConfig
+    global ConfigLock
+    global ToggleConfig
+    global ToggleLock
+    global ReconnectionTimer
+    global discord_client
+    global tracker_client
+
+    # Version Checking against GitHub
+    try:
+        print(__name__)
+        BPversion = "pre-v3.0.0"
+        GHAPIjson = json.loads(requests.get("https://api.github.com/repos/Quasky/bridgeipelago/releases/latest").content)
+        if(GHAPIjson["tag_name"] != BPversion):
+            print("You are not running the current release of Bridgeipelago.")
+            print("The current version is: " + GHAPIjson["tag_name"] + " -- You are running: " + BPversion)
+    except:
+        print("Unable to query GitHub API for Bridgeipelago version!")
+    
+    # Generate the config managers and load the configs
+    GenerateConfigManagers()
+    #Setup Logging for the bot
+    SetupLogger()
+    # Load all of the meta modules (if any)
+    LoadMetaModules()
     # Confirm all of the core directories and files exist just to be safe
     ConfirmSpecialFiles()
-    
-    global CoreConfig
-    global ToggleConfig
-    global ReconnectionTimer
-    global DiscordClient
-    global tracker_client
 
     ## Threadded async functions
     if(CoreConfig["AdvancedConfig"]["DiscordJoinOnly"] == False):
@@ -1885,7 +1921,7 @@ def main():
                     time.sleep(3)
                     print("-- Restarting tracker client...")
                     tracker_client.start()
-                    time.sleep(3)
+                    time.sleep(10)
 
         if not CoreConfig["AdvancedConfig"]["CycleDiscord"] == 0:
             DiscordCycleCount = DiscordCycleCount + 1
@@ -1937,7 +1973,7 @@ if __name__ == '__main__':
     freeze_support()
     main()
 
-# On 7/12/2024 Bridgeipelago crashed the AP servers and caused Berserker to give me a code review:
+# On 7/12/2025 Bridgeipelago crashed the AP servers and caused Berserker to give me a code review:
 # Berserker - One, what I showed, whatever this bridgeipelago is
 # Exempt-Medic - It's some kind of AP Discord Bot
 # Berserker - Well it's clearly programmed like shit
