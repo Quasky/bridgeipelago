@@ -143,6 +143,7 @@ Hopefully that makes sense.
 |`CollectMessages`|Will relay collect messages|
 |`CountdownMessages`|Will relay server coutndown messages|
 |`DeathlinkMessages`|Will relay deathlink messages|
+|`SendOwnSlotMessages`|By default, the bot will not relay its own chat messages from the AP room to the Discord channel in order to prevent infinite relay loops. If you're loading the bot into an existing AP without a slot for the bot to connect to, however, you may want to disable this feature in order to relay chat messages for the player using that slot. The bot will never relay Discord messages back from the room to the channel, even with this option on.|
 |`APClientHelp`|Will relay `!help` to discord|
 |`APClientLicense`|Will relay `!License` to discord|
 |`APClientCountdown`|etc...|

@@ -859,7 +859,9 @@ async def ProcessChatQueue():
                 if Message['data']['type'] == 'Chat':
                     MessageMessage = Message['data']['message'].lower()
                     MessageText = Message['data']['data'][0]['text']
-                    if (MessageText).startswith(CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']):
+                    if (MessageText).startswith(CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']) and ( 
+                        (MessageMessage).startswith('(discord)') or CoreConfig["RelayConfig"]["SendOwnSlotMessages"] == False
+                    ):
                         await CancelProcess()
                     elif not MessageMessage.startswith("!"):
                         await SendMainChannelMessage(MessageText) 
