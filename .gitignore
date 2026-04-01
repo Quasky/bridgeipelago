@@ -7,8 +7,9 @@ bridgeipelago
 bot/
 bot.py
 test/
+config.json
 
-
+.idea/
 
 
 

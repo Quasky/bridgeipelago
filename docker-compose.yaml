@@ -1,0 +1,10 @@
+services:
+  bridgeipelago:
+    build: .
+    volumes:
+      - ./bridgeipelago/logs:/bridgeipelago/logs
+      - ./bridgeipelago/RegistrationData:/bridgeipelago/RegistrationData
+      - ./bridgeipelago/ItemQueue:/bridgeipelago/ItemQueue
+      - ./bridgeipelago/ArchData:/bridgeipelago/ArchData
+    working_dir: /bridgeipelago
+    restart: unless-stopped
