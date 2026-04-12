@@ -1511,10 +1511,12 @@ async def Command_CheckGraph():
         if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == False:
             page = requests.get(CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'])
             soup = BeautifulSoup(page.content, "html.parser")
+
             #Yoinks table rows from the checks table
             tables = soup.find("table",id="checks-table")
             for slots in tables.find_all('tbody'):
                 rows = slots.find_all('tr')
+
             GameState = {}
             #Moves through rows for data
             for row in rows:
@@ -1531,11 +1533,9 @@ async def Command_CheckGraph():
                 return
             GameState = {slot: data['percent'] for slot, data in sorted(status.items())}
 
+        #Guard when empty data.
         if len(GameState) == 0:
             await MainChannel.send("No status data to graph.")
-            return
-        if len(GameState) > 100:
-            await MainChannel.send("Too many slots to graph cleanly (" + str(len(GameState)) + " slots). Use `$checkcount` instead.")
             return
 
         GameState = {key: value for key, value in sorted(GameState.items())}
@@ -1545,37 +1545,46 @@ async def Command_CheckGraph():
         for key in deathkeys:
             GameNames.append(str(key))
             GameCounts.append(float(GameState[key]))
+
         ### PLOTTING CODE ###
         with plt.xkcd():
             plt.logging.getLogger('matplotlib.font_manager').disabled = True
+
             # Change length of plot long axis based on player count
-            if len(GameNames) >= 50:
-                long_axis=64
-            elif len(GameNames) >= 20:
+            if len(GameNames) >= 20:
                 long_axis=32
             elif len(GameNames) >= 5:
                 long_axis=16
             else:
                 long_axis=8
+
             # Initialize Plot
             fig = plt.figure(figsize=(long_axis,8))
             ax = fig.add_subplot(111)
+
             # Index the players in order
             player_index = np.arange(0,len(GameNames),1)
+
             # Plot count vs. player index
             plot = ax.bar(player_index,GameCounts,color='darkorange')
+
             # Change "index" label to corresponding player name
             ax.set_xticks(player_index)
             ax.set_xticklabels(GameNames,fontsize=20,rotation=-45,ha='left',rotation_mode="anchor")
+
             # Set y-axis limits to make sure the biggest bar has space for label above it
             ax.set_ylim(0,max(GameCounts)*1.1)
+
             # Set y-axis to have integer labels, since this is integer data
             ax.yaxis.set_major_locator(MaxNLocator(integer=True))
             ax.tick_params(axis='y', labelsize=20)
+
             # Add labels above bars
             ax.bar_label(plot,fontsize=20) 
+
             # Plot Title
             ax.set_title('Completion Percentage',fontsize=28)
+            
         # Save image and send - any existing plot will be overwritten
         plt.savefig(GetCoreFiles("checkplot"), bbox_inches="tight")
         await MainChannel.send(file=discord.File(GetCoreFiles("checkplot")))
