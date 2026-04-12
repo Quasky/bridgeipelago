@@ -1363,10 +1363,6 @@ async def FetchStatusData():
     """
     Sends !status to the AP server via the tracker websocket and waits for
     the CommandResult response. Returns the parsed status dict, or None on failure.
-    
-    Note: This uses a short-lived HintClient-style connection to send the command
-    and capture the result, since the main tracker client doesn't expose a way
-    to do request/response directly.
     """
     result_holder = {}
     done_event = asyncio.Event()
