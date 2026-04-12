@@ -1419,34 +1419,78 @@ async def FetchStatusData():
 
 async def Command_CheckCount():
     try:
-        status = await FetchStatusData()
-        if not status:
-            await MainChannel.send("Failed to retrieve status data from the AP server.")
-            return
-
-        SlotWidth = max((len(slot) for slot in status), default=4)
-        ChecksWidth = max((len(f"{v['checked']}/{v['total']}") for v in status.values()), default=6)
-        slot_header = "Slot"
-        checks_header = "Checks"
-        percent_header = "%"
-
-        checkmessage = "```" + slot_header.ljust(SlotWidth) + " || " + checks_header.ljust(ChecksWidth) + " || " + percent_header + "\n"
-        for slot, data in sorted(status.items()):
-            if len(checkmessage) > 1500:
-                checkmessage += "```"
-                await MainChannel.send(checkmessage)
-                checkmessage = "```"
-            checks_str = f"{data['checked']}/{data['total']}"
-            percent_str = f"{data['percent']}%"
-            checkmessage += slot.ljust(SlotWidth) + " || " + checks_str.ljust(ChecksWidth) + " || " + percent_str + "\n"
-
+        if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == False:
+            page = requests.get(CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'])
+            soup = BeautifulSoup(page.content, "html.parser")
+            tables = soup.find("table",id="checks-table")
+            for slots in tables.find_all('tbody'):
+                rows = slots.find_all('tr')
+            SlotWidth = 0
+            GameWidth = 0
+            StatusWidth = 0
+            ChecksWidth = 0
+            SlotArray = [0]
+            GameArray = [0]
+            StatusArray = [0]
+            ChecksArray = [0]
+            for row in rows:
+                slot = (row.find_all('td')[1].text).strip()
+                game = (row.find_all('td')[2].text).strip()
+                status = (row.find_all('td')[3].text).strip()
+                checks = (row.find_all('td')[4].text).strip()
+                SlotArray.append(len(slot))
+                GameArray.append(len(game))
+                StatusArray.append(len(status))
+                ChecksArray.append(len(checks))
+            SlotArray.sort(reverse=True)
+            GameArray.sort(reverse=True)
+            StatusArray.sort(reverse=True)
+            ChecksArray.sort(reverse=True)
+            SlotWidth = SlotArray[0]
+            GameWidth = GameArray[0]
+            StatusWidth = StatusArray[0]
+            ChecksWidth = ChecksArray[0]
+            slot = "Slot"
+            game = "Game"
+            status = "Status"
+            checks = "Checks"
+            percent = "%"
+            checkmessage = "```" + slot.ljust(SlotWidth) + " || " + game.ljust(GameWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent + "\n"
+            for row in rows:
+                if len(checkmessage) > 1500:
+                    checkmessage += "```"
+                    await MainChannel.send(checkmessage)
+                    checkmessage = "```"
+                slot = (row.find_all('td')[1].text).strip()
+                game = (row.find_all('td')[2].text).strip()
+                status = (row.find_all('td')[3].text).strip()
+                checks = (row.find_all('td')[4].text).strip()
+                percent = (row.find_all('td')[5].text).strip()
+                checkmessage += slot.ljust(SlotWidth) + " || " + game.ljust(GameWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent + "\n"
+        else:
+            status = await FetchStatusData()
+            if not status:
+                await MainChannel.send("Failed to retrieve status data from the AP server.")
+                return
+            SlotWidth = max(len(s) for s in status)
+            ChecksWidth = max(len(f"{v['checked']}/{v['total']}") for v in status.values())
+            slot = "Slot"
+            checks = "Checks"
+            percent = "%"
+            checkmessage = "```" + slot.ljust(SlotWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent + "\n"
+            for slot, data in sorted(status.items()):
+                if len(checkmessage) > 1500:
+                    checkmessage += "```"
+                    await MainChannel.send(checkmessage)
+                    checkmessage = "```"
+                checkmessage += slot.ljust(SlotWidth) + " || " + f"{data['checked']}/{data['total']}".ljust(ChecksWidth) + " || " + f"{data['percent']}%" + "\n"
         checkmessage += "```"
         await MainChannel.send(checkmessage)
     except Exception as e:
         WriteToErrorLog("Command_CheckCount", "Error in check count command: " + str(e))
         print(e)
         await DebugChannel.send("ERROR IN CHECKCOUNT <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
-
+        
 async def Command_CheckGraph():
     try:
         status = await FetchStatusData()
