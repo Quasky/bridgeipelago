@@ -1584,7 +1584,7 @@ async def Command_CheckGraph():
 
             # Plot Title
             ax.set_title('Completion Percentage',fontsize=28)
-            
+
         # Save image and send - any existing plot will be overwritten
         plt.savefig(GetCoreFiles("checkplot"), bbox_inches="tight")
         await MainChannel.send(file=discord.File(GetCoreFiles("checkplot")))
