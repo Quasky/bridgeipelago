@@ -18,10 +18,12 @@
 
 
 #Core Dependencies
+import asyncio
 import json
 import typing
 import uuid
 import os
+import re
 import sys
 from enum import Enum
 import logging
@@ -1335,75 +1337,114 @@ async def Command_DeathCount():
         WriteToErrorLog("Command_DeathCount", "Error in death count command: " + str(e))
         await DebugChannel.send("ERROR DEATHCOUNT <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
 
+def ParseStatusMessage(status_text):
+    """
+    Parses the output of the AP !status command into a dict of:
+    { slot_name: {"checked": int, "total": int, "percent": float} }
+    
+    Expected line format:
+    "player1 has 0 connections. (307/637)"
+    "player2 has 1 connection. (53/92)"
+    """
+    results = {}
+    pattern = re.compile(r'^(.+?) has \d+ connections?\. \((\d+)\/(\d+)\)$')
+    for line in status_text.splitlines():
+        line = line.strip()
+        match = pattern.match(line)
+        if match:
+            slot = match.group(1)
+            checked = int(match.group(2))
+            total = int(match.group(3))
+            percent = round((checked / total * 100), 1) if total > 0 else 0.0
+            results[slot] = {"checked": checked, "total": total, "percent": percent}
+    return results
+
+async def FetchStatusData():
+    """
+    Sends !status to the AP server via the tracker websocket and waits for
+    the CommandResult response. Returns the parsed status dict, or None on failure.
+    
+    Note: This uses a short-lived HintClient-style connection to send the command
+    and capture the result, since the main tracker client doesn't expose a way
+    to do request/response directly.
+    """
+    result_holder = {}
+    done_event = asyncio.Event()
+
+    class StatusClient:
+        tags: set[str] = {'TextOnly'}
+        version: dict[str, any] = {"major": 0, "minor": 6, "build": 0, "class": "Version"}
+        items_handling: int = 0b000
+
+        def __init__(self):
+            self.server_uri = CoreConfig["ArchipelagoConfig"]['ArchipelagoServer']
+            self.port = CoreConfig["ArchipelagoConfig"]['ArchipelagoPort']
+            self.slot_name = CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']
+            self.password = GetArchPassword()
+
+        async def run(self):
+            _ConnectionString = str(self.server_uri) + ":" + str(self.port)
+            try:
+                async with websockets.connect(_ConnectionString, max_size=None) as websocket:
+                    connected = False
+                    async for raw in websocket:
+                        messages = json.loads(raw)
+                        for msg in messages:
+                            cmd = msg.get('cmd')
+                            if cmd == 'RoomInfo':
+                                payload = [{
+                                    'cmd': 'Connect',
+                                    'game': '',
+                                    'password': self.password,
+                                    'name': self.slot_name,
+                                    'version': self.version,
+                                    'tags': list(self.tags),
+                                    'items_handling': self.items_handling,
+                                    'uuid': uuid.getnode(),
+                                }]
+                                await websocket.send(json.dumps(payload))
+                            elif cmd == 'Connected':
+                                connected = True
+                                await websocket.send(json.dumps([{'cmd': 'Say', 'text': '!status'}]))
+                            elif cmd == 'PrintJSON' and connected:
+                                if msg.get('type') == 'CommandResult':
+                                    text = msg['data'][0]['text']
+                                    result_holder['data'] = ParseStatusMessage(text)
+                                    done_event.set()
+                                    return
+            except Exception as e:
+                WriteToErrorLog("FetchStatusData", "Error fetching status: " + str(e))
+                done_event.set()
+
+    client = StatusClient()
+    await asyncio.wait_for(client.run(), timeout=15)
+    return result_holder.get('data', None)
+
+
 async def Command_CheckCount():
-    if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == True:
-        await MainChannel.send("This command is not available in self-hosted mode.")
-        return
-
     try:
-        page = requests.get(CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'])
-        soup = BeautifulSoup(page.content, "html.parser")
+        status = await FetchStatusData()
+        if not status:
+            await MainChannel.send("Failed to retrieve status data from the AP server.")
+            return
 
-        #Yoinks table rows from the checks table
-        tables = soup.find("table",id="checks-table")
-        for slots in tables.find_all('tbody'):
-            rows = slots.find_all('tr')
+        SlotWidth = max((len(slot) for slot in status), default=4)
+        ChecksWidth = max((len(f"{v['checked']}/{v['total']}") for v in status.values()), default=6)
+        slot_header = "Slot"
+        checks_header = "Checks"
+        percent_header = "%"
 
-        SlotWidth = 0
-        GameWidth = 0
-        StatusWidth = 0
-        ChecksWidth = 0
-        SlotArray = [0]
-        GameArray = [0]
-        StatusArray = [0]
-        ChecksArray = [0]
-
-        #Moves through rows for data
-        for row in rows:
-            slot = (row.find_all('td')[1].text).strip()
-            game = (row.find_all('td')[2].text).strip()
-            status = (row.find_all('td')[3].text).strip()
-            checks = (row.find_all('td')[4].text).strip()
-            
-            SlotArray.append(len(slot))
-            GameArray.append(len(game))
-            StatusArray.append(len(status))
-            ChecksArray.append(len(checks))
-
-        SlotArray.sort(reverse=True)
-        GameArray.sort(reverse=True)
-        StatusArray.sort(reverse=True)
-        ChecksArray.sort(reverse=True)
-
-        SlotWidth = SlotArray[0]
-        GameWidth = GameArray[0]
-        StatusWidth = StatusArray[0]
-        ChecksWidth = ChecksArray[0]
-
-        slot = "Slot"
-        game = "Game"
-        status = "Status"
-        checks = "Checks"
-        percent = "%"
-
-        #Preps check message
-        checkmessage = "```" + slot.ljust(SlotWidth) + " || " + game.ljust(GameWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent +"\n"
-
-        for row in rows:
+        checkmessage = "```" + slot_header.ljust(SlotWidth) + " || " + checks_header.ljust(ChecksWidth) + " || " + percent_header + "\n"
+        for slot, data in sorted(status.items()):
             if len(checkmessage) > 1500:
-                checkmessage = checkmessage + "```"
+                checkmessage += "```"
                 await MainChannel.send(checkmessage)
                 checkmessage = "```"
-            slot = (row.find_all('td')[1].text).strip()
-            game = (row.find_all('td')[2].text).strip()
-            status = (row.find_all('td')[3].text).strip()
-            checks = (row.find_all('td')[4].text).strip()
-            percent = (row.find_all('td')[5].text).strip()
-            checkmessage = checkmessage + slot.ljust(SlotWidth) + " || " + game.ljust(GameWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent + "\n"
+            checks_str = f"{data['checked']}/{data['total']}"
+            percent_str = f"{data['percent']}%"
+            checkmessage += slot.ljust(SlotWidth) + " || " + checks_str.ljust(ChecksWidth) + " || " + percent_str + "\n"
 
-
-        #Finishes the check message
-        checkmessage = checkmessage + "```"
+        checkmessage += "```"
         await MainChannel.send(checkmessage)
     except Exception as e:
         WriteToErrorLog("Command_CheckCount", "Error in check count command: " + str(e))
@@ -1411,77 +1452,37 @@ async def Command_CheckCount():
         await DebugChannel.send("ERROR IN CHECKCOUNT <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
 
 async def Command_CheckGraph():
-    if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == True:
-        await MainChannel.send("This command is not available in self-hosted mode.")
-        return
-
     try:
-        page = requests.get(CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'])
-        soup = BeautifulSoup(page.content, "html.parser")
+        status = await FetchStatusData()
+        if not status:
+            await MainChannel.send("Failed to retrieve status data from the AP server.")
+            return
 
-        #Yoinks table rows from the checks table
-        tables = soup.find("table",id="checks-table")
-        for slots in tables.find_all('tbody'):
-            rows = slots.find_all('tr')
-
-        GameState = {}
-        #Moves through rows for data
-        for row in rows:
-            slot = (row.find_all('td')[1].text).strip()
-            game = (row.find_all('td')[2].text).strip()
-            status = (row.find_all('td')[3].text).strip()
-            checks = (row.find_all('td')[4].text).strip()
-            percent = (row.find_all('td')[5].text).strip()
-            GameState[slot] = percent
-        
-        GameState = {key: value for key, value in sorted(GameState.items())}
-        GameNames = []
-        GameCounts = []
-        deathkeys = GameState.keys()
-        for key in deathkeys:
-            GameNames.append(str(key))
-            GameCounts.append(float(GameState[key]))
+        GameState = {slot: data['percent'] for slot, data in sorted(status.items())}
+        GameNames = list(GameState.keys())
+        GameCounts = list(GameState.values())
 
         ### PLOTTING CODE ###
         with plt.xkcd():
             plt.logging.getLogger('matplotlib.font_manager').disabled = True
-
-            # Change length of plot long axis based on player count
             if len(GameNames) >= 20:
-                long_axis=32
+                long_axis = 32
             elif len(GameNames) >= 5:
-                long_axis=16
+                long_axis = 16
             else:
-                long_axis=8
-
-            # Initialize Plot
-            fig = plt.figure(figsize=(long_axis,8))
+                long_axis = 8
+            fig = plt.figure(figsize=(long_axis, 8))
             ax = fig.add_subplot(111)
-
-            # Index the players in order
-            player_index = np.arange(0,len(GameNames),1)
-
-            # Plot count vs. player index
-            plot = ax.bar(player_index,GameCounts,color='darkorange')
-
-            # Change "index" label to corresponding player name
+            player_index = np.arange(0, len(GameNames), 1)
+            plot = ax.bar(player_index, GameCounts, color='darkorange')
             ax.set_xticks(player_index)
-            ax.set_xticklabels(GameNames,fontsize=20,rotation=-45,ha='left',rotation_mode="anchor")
-
-            # Set y-axis limits to make sure the biggest bar has space for label above it
-            ax.set_ylim(0,max(GameCounts)*1.1)
-
-            # Set y-axis to have integer labels, since this is integer data
+            ax.set_xticklabels(GameNames, fontsize=20, rotation=-45, ha='left', rotation_mode="anchor")
+            ax.set_ylim(0, max(GameCounts) * 1.1)
             ax.yaxis.set_major_locator(MaxNLocator(integer=True))
             ax.tick_params(axis='y', labelsize=20)
+            ax.bar_label(plot, fontsize=20)
+            ax.set_title('Completion Percentage', fontsize=28)
 
-            # Add labels above bars
-            ax.bar_label(plot,fontsize=20) 
-
-            # Plot Title
-            ax.set_title('Completion Percentage',fontsize=28)
-
-        # Save image and send - any existing plot will be overwritten
         plt.savefig(GetCoreFiles("checkplot"), bbox_inches="tight")
         await MainChannel.send(file=discord.File(GetCoreFiles("checkplot")))
     except Exception as e:
