@@ -192,9 +192,30 @@ DiscordGuildID = 1171964435741544498
 
 #Optionaly Load in Meta Modules
 def LoadMetaModules():
-    # Load Meta Modules if they are enabled in the config
-    if CoreConfig["MetaConfig"]["FlavorDeathlink"] == True:
-        from modules.DeathlinkFlavor import GetFlavorText
+    import importlib
+    #colors because.. yay
+    PURPLE = "\033[95m"
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
+    #Modified MetaConfig to autoload and inject modules.
+    for module_name, enabled in CoreConfig["MetaConfig"].items():
+        if enabled:
+            try:
+                module = importlib.import_module(f"modules.{module_name}")
+                
+                # Inject functions to global
+                for attr in dir(module):
+                    if not attr.startswith("_"):
+                        globals()[attr] = getattr(module, attr)
+
+                # launch setup if exist
+                if hasattr(module, "setup"):
+                    module.setup(discord_client, CoreConfig)
+
+                print(f"{PURPLE}[MetaModule]{RESET} {GREEN}Loaded: {module_name}{RESET}")
+            except Exception as e:
+                print(f"{PURPLE}[MetaModule]{RESET} {RED}Failed to load {module_name}: {e}{RESET}")
 
 ## ARCHIPELAGO TRACKER CLIENT + CORE FUNCTION
 class TrackerClient():
@@ -773,7 +794,7 @@ async def ProcessDeathQueue():
         if CoreConfig["RelayConfig"]["DeathlinkMessages"] == True:
             DeathMessage = "**Deathlink!** "
             # Flavour
-            if CoreConfig["MetaConfig"]["FlavorDeathlink"] == True:
+            if CoreConfig["MetaConfig"]["DeathlinkFlavor"] == True:
                 DeathMessage += GetFlavorText(str(chatmessage['data']['source']))
             else:
                 DeathMessage += "Received from **" + str(chatmessage['data']['source']) + "**"

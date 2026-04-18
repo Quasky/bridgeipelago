@@ -106,3 +106,9 @@ def GetFlavorText(PlayerName):
     ]
     PlayerNameFormatted = f"**{PlayerName}**"
     return (random.choice(FlavorList)).replace("PLAYER", PlayerNameFormatted)
+
+def setup(bot, CoreConfig):
+    import sys
+    main = sys.modules.get("bridgeipelago")
+    if main:
+        setattr(main, "GetFlavorText", GetFlavorText)

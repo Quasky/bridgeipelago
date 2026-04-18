@@ -49,8 +49,9 @@
         "DiscordBridgeEnabled": false
     },
     "MetaConfig": {
-        "FlavorDeathlink": false,
-        "DeathlinkLottery": false
+        "DeathlinkFlavor": false,
+        "DeathlinkLottery": false,
+        "ReactionRegister": false
     },
     "AdvancedConfig": {
         "LoggingDirectory": "/logs/",
