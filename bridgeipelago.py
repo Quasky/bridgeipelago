@@ -22,6 +22,7 @@ import json
 import typing
 import uuid
 import os
+import re
 import sys
 from enum import Enum
 import logging
@@ -171,6 +172,7 @@ lottery_queue = Queue()
 discordbridge_queue = Queue()
 hint_queue = Queue()
 hintprocessing_queue = Queue()
+ap_command_queue = Queue()
 
 #Discord Bot Initialization
 intents = discord.Intents.default()
@@ -226,6 +228,7 @@ class TrackerClient():
         self.ap_connection: ClientConnection = None
         self.socket_thread: Thread = None
         self.is_closed = Event()
+        self.pending_ap_command_source = None
 
     def run(self):
         #=== Main Run Loop ===
@@ -283,6 +286,12 @@ class TrackerClient():
                             elif args.get('type') == 'Countdown':
                                 if CoreConfig["RelayConfig"]["CountdownMessages"] == True:
                                     chat_queue.put(MessageObject)
+                            elif args.get('type') == 'CommandResult':
+                                if self.pending_ap_command_source is not None:
+                                    MessageObject["type"] = "APCommandResult"
+                                    MessageObject["flag"] = self.pending_ap_command_source
+                                    self.pending_ap_command_source = None
+                                    chat_queue.put(MessageObject)
                         elif 'DeathLink' in args.get('tags', []):
                             death_queue.put(args)
                         else:
@@ -313,6 +322,14 @@ class TrackerClient():
                         payload = {
                             'cmd': 'Say',
                             'text': str(received_payload)}
+                        self.send_message(payload)
+
+                if not ap_command_queue.empty():
+                        ap_cmd = ap_command_queue.get()
+                        self.pending_ap_command_source = ap_cmd["source"]
+                        payload = {
+                            'cmd': 'Say', 
+                            'text': ap_cmd["text"]}
                         self.send_message(payload)
 
         except Exception as e:
@@ -593,10 +610,10 @@ async def on_message(message):
         await Command_DeathCount()
     
     if message.content.startswith('$checkcount'):
-        await Command_CheckCount()
-    
+        ap_command_queue.put({"text": "!status", "source": "checkcount"})
+
     if message.content.startswith('$checkgraph'):
-        await Command_CheckGraph()
+        ap_command_queue.put({"text": "!status", "source": "checkgraph"})
     
     if message.content.startswith('$iloveyou'):
         await Command_ILoveYou(message)
@@ -906,6 +923,53 @@ async def ProcessChatQueue():
                             await SendMainChannelMessage(MessageText)
                 else:
                     await SendMainChannelMessage(Message['data']['data'][0]['text'])  
+            elif Message['type'] == "APCommandResult":
+                source = Message['flag']
+                status_text = Message['data']['data'][0]['text']
+                status = ParseStatusMessage(status_text)
+                if not status:
+                    await SendMainChannelMessage("Failed to parse status data from the AP server.")
+                    return
+                if source == "checkcount":
+                    SlotWidth = max(len(s) for s in status)
+                    ChecksWidth = max(len(f"{v['checked']}/{v['total']}") for v in status.values())
+                    checkmessage = "```" + "Slot".ljust(SlotWidth) + " || " + "Checks".ljust(ChecksWidth) + " || " + "%" + "\n"
+                    for slot, data in sorted(status.items()):
+                        if len(checkmessage) > 1500:
+                            checkmessage += "```"
+                            await SendMainChannelMessage(checkmessage)
+                            checkmessage = "```"
+                        checkmessage += slot.ljust(SlotWidth) + " || " + f"{data['checked']}/{data['total']}".ljust(ChecksWidth) + " || " + f"{data['percent']}%" + "\n"
+                    checkmessage += "```"
+                    await SendMainChannelMessage(checkmessage)
+                elif source == "checkgraph":
+                    GameState = {slot: data['percent'] for slot, data in sorted(status.items())}
+                    if len(GameState) == 0:
+                        await SendMainChannelMessage("No status data to graph.")
+                        return
+                    GameNames = list(GameState.keys())
+                    GameCounts = [float(v) for v in GameState.values()]
+                    with plt.xkcd():
+                        plt.logging.getLogger('matplotlib.font_manager').disabled = True
+                        if len(GameNames) >= 20:
+                            long_axis = 32
+                        elif len(GameNames) >= 5:
+                            long_axis = 16
+                        else:
+                            long_axis = 8
+                        fig = plt.figure(figsize=(long_axis, 8))
+                        ax = fig.add_subplot(111)
+                        player_index = np.arange(0, len(GameNames), 1)
+                        plot = ax.bar(player_index, GameCounts, color='darkorange')
+                        ax.set_xticks(player_index)
+                        ax.set_xticklabels(GameNames, fontsize=20, rotation=-45, ha='left', rotation_mode="anchor")
+                        ax.set_ylim(0, max(GameCounts) * 1.1)
+                        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+                        ax.tick_params(axis='y', labelsize=20)
+                        ax.bar_label(plot, fontsize=20)
+                        ax.set_title('Completion Percentage', fontsize=28)
+                    plt.savefig(GetCoreFiles("checkplot"), bbox_inches="tight")
+                    await MainChannel.send(file=discord.File(GetCoreFiles("checkplot")))
             else:
                 WriteToErrorLog("ChatQueue", "Unknown chat message type received: " + str(Message))
     except Exception as e:
@@ -960,7 +1024,7 @@ async def first_command(interaction):
     guild=discord.Object(id=DiscordGuildID)
 )
 async def first_command(interaction):
-    await Command_CheckCount()
+    ap_command_queue.put({"text": "!status", "source": "checkcount"})
     await interaction.response.send_message(content="Checkcount:")
 
 @tree.command(name="checkgraph",
@@ -968,7 +1032,7 @@ async def first_command(interaction):
     guild=discord.Object(id=DiscordGuildID)
 )
 async def first_command(interaction):
-    await Command_CheckGraph()
+    ap_command_queue.put({"text": "!status", "source": "checkgraph"})
     await interaction.response.send_message(content="Checkgraph:")
 
 async def SendMainChannelMessage(message):
@@ -1335,159 +1399,27 @@ async def Command_DeathCount():
         WriteToErrorLog("Command_DeathCount", "Error in death count command: " + str(e))
         await DebugChannel.send("ERROR DEATHCOUNT <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
 
-async def Command_CheckCount():
-    if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == True:
-        await MainChannel.send("This command is not available in self-hosted mode.")
-        return
-
-    try:
-        page = requests.get(CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'])
-        soup = BeautifulSoup(page.content, "html.parser")
-
-        #Yoinks table rows from the checks table
-        tables = soup.find("table",id="checks-table")
-        for slots in tables.find_all('tbody'):
-            rows = slots.find_all('tr')
-
-        SlotWidth = 0
-        GameWidth = 0
-        StatusWidth = 0
-        ChecksWidth = 0
-        SlotArray = [0]
-        GameArray = [0]
-        StatusArray = [0]
-        ChecksArray = [0]
-
-        #Moves through rows for data
-        for row in rows:
-            slot = (row.find_all('td')[1].text).strip()
-            game = (row.find_all('td')[2].text).strip()
-            status = (row.find_all('td')[3].text).strip()
-            checks = (row.find_all('td')[4].text).strip()
-            
-            SlotArray.append(len(slot))
-            GameArray.append(len(game))
-            StatusArray.append(len(status))
-            ChecksArray.append(len(checks))
-
-        SlotArray.sort(reverse=True)
-        GameArray.sort(reverse=True)
-        StatusArray.sort(reverse=True)
-        ChecksArray.sort(reverse=True)
-
-        SlotWidth = SlotArray[0]
-        GameWidth = GameArray[0]
-        StatusWidth = StatusArray[0]
-        ChecksWidth = ChecksArray[0]
-
-        slot = "Slot"
-        game = "Game"
-        status = "Status"
-        checks = "Checks"
-        percent = "%"
-
-        #Preps check message
-        checkmessage = "```" + slot.ljust(SlotWidth) + " || " + game.ljust(GameWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent +"\n"
-
-        for row in rows:
-            if len(checkmessage) > 1500:
-                checkmessage = checkmessage + "```"
-                await MainChannel.send(checkmessage)
-                checkmessage = "```"
-            slot = (row.find_all('td')[1].text).strip()
-            game = (row.find_all('td')[2].text).strip()
-            status = (row.find_all('td')[3].text).strip()
-            checks = (row.find_all('td')[4].text).strip()
-            percent = (row.find_all('td')[5].text).strip()
-            checkmessage = checkmessage + slot.ljust(SlotWidth) + " || " + game.ljust(GameWidth) + " || " + checks.ljust(ChecksWidth) + " || " + percent + "\n"
-
-
-        #Finishes the check message
-        checkmessage = checkmessage + "```"
-        await MainChannel.send(checkmessage)
-    except Exception as e:
-        WriteToErrorLog("Command_CheckCount", "Error in check count command: " + str(e))
-        print(e)
-        await DebugChannel.send("ERROR IN CHECKCOUNT <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
-
-async def Command_CheckGraph():
-    if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == True:
-        await MainChannel.send("This command is not available in self-hosted mode.")
-        return
-
-    try:
-        page = requests.get(CoreConfig["ArchipelagoConfig"]['ArchipelagoTrackerURL'])
-        soup = BeautifulSoup(page.content, "html.parser")
-
-        #Yoinks table rows from the checks table
-        tables = soup.find("table",id="checks-table")
-        for slots in tables.find_all('tbody'):
-            rows = slots.find_all('tr')
-
-        GameState = {}
-        #Moves through rows for data
-        for row in rows:
-            slot = (row.find_all('td')[1].text).strip()
-            game = (row.find_all('td')[2].text).strip()
-            status = (row.find_all('td')[3].text).strip()
-            checks = (row.find_all('td')[4].text).strip()
-            percent = (row.find_all('td')[5].text).strip()
-            GameState[slot] = percent
-        
-        GameState = {key: value for key, value in sorted(GameState.items())}
-        GameNames = []
-        GameCounts = []
-        deathkeys = GameState.keys()
-        for key in deathkeys:
-            GameNames.append(str(key))
-            GameCounts.append(float(GameState[key]))
-
-        ### PLOTTING CODE ###
-        with plt.xkcd():
-            plt.logging.getLogger('matplotlib.font_manager').disabled = True
-
-            # Change length of plot long axis based on player count
-            if len(GameNames) >= 20:
-                long_axis=32
-            elif len(GameNames) >= 5:
-                long_axis=16
-            else:
-                long_axis=8
-
-            # Initialize Plot
-            fig = plt.figure(figsize=(long_axis,8))
-            ax = fig.add_subplot(111)
-
-            # Index the players in order
-            player_index = np.arange(0,len(GameNames),1)
-
-            # Plot count vs. player index
-            plot = ax.bar(player_index,GameCounts,color='darkorange')
-
-            # Change "index" label to corresponding player name
-            ax.set_xticks(player_index)
-            ax.set_xticklabels(GameNames,fontsize=20,rotation=-45,ha='left',rotation_mode="anchor")
-
-            # Set y-axis limits to make sure the biggest bar has space for label above it
-            ax.set_ylim(0,max(GameCounts)*1.1)
-
-            # Set y-axis to have integer labels, since this is integer data
-            ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-            ax.tick_params(axis='y', labelsize=20)
-
-            # Add labels above bars
-            ax.bar_label(plot,fontsize=20) 
-
-            # Plot Title
-            ax.set_title('Completion Percentage',fontsize=28)
-
-        # Save image and send - any existing plot will be overwritten
-        plt.savefig(GetCoreFiles("checkplot"), bbox_inches="tight")
-        await MainChannel.send(file=discord.File(GetCoreFiles("checkplot")))
-    except Exception as e:
-        WriteToErrorLog("Command_CheckGraph", "Error in check graph command: " + str(e))
-        print(e)
-        await DebugChannel.send("ERROR IN CHECKGRAPH <@"+str(CoreConfig["DiscordConfig"]["DiscordAlertUserID"])+">")
+def ParseStatusMessage(status_text):
+    """
+    Parses the output of the AP !status command into a dict of:
+    { slot_name: {"checked": int, "total": int, "percent": float} }
+    
+    Expected line format:
+    "player1 has 0 connections. (307/637)"
+    "player2 has 1 connection. (53/92)"
+    """
+    results = {}
+    pattern = re.compile(r'^(.+?) has \d+ connections?\. \((\d+)\/(\d+)\)$')
+    for line in status_text.splitlines():
+        line = line.strip()
+        match = pattern.match(line)
+        if match:
+            slot = match.group(1)
+            checked = int(match.group(2))
+            total = int(match.group(3))
+            percent = round((checked / total * 100), 1) if total > 0 else 0.0
+            results[slot] = {"checked": checked, "total": total, "percent": percent}
+    return results
 
 async def Command_ILoveYou(message):
     await message.channel.send("Thank you.  You make a difference in this world. :)")
@@ -1806,11 +1738,18 @@ def WriteToErrorLog(module,message):
 async def CancelProcess():
     return 69420
 
-def Discord(shared_config,toggle_config):
-    global CoreConfig
-    global ToggleConfig
+def Discord(shared_config, toggle_config, _item_queue, _death_queue, _chat_queue, _discordbridge_queue, _hint_queue, _ap_command_queue, _discordseppuku_queue):
+    global CoreConfig, ToggleConfig
+    global item_queue, death_queue, chat_queue, discordbridge_queue, hint_queue, ap_command_queue, discordseppuku_queue
     CoreConfig = shared_config
     ToggleConfig = toggle_config
+    item_queue = _item_queue
+    death_queue = _death_queue
+    chat_queue = _chat_queue
+    discordbridge_queue = _discordbridge_queue
+    hint_queue = _hint_queue
+    ap_command_queue = _ap_command_queue
+    discordseppuku_queue = _discordseppuku_queue
     print("++ Starting Discord Client")
     discord_client.run(str(CoreConfig["DiscordConfig"]["DiscordToken"]))
 
@@ -1885,7 +1824,7 @@ def main():
         print("== Arch Data Loaded!")
         time.sleep(3)
 
-    DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig))
+    DiscordThread = Process(target=Discord, args=(CoreConfig, ToggleConfig, item_queue, death_queue, chat_queue, discordbridge_queue, hint_queue, ap_command_queue, discordseppuku_queue))
     DiscordThread.start()
 
     DiscordCycleCount = 0
@@ -1943,7 +1882,7 @@ def main():
                 time.sleep(3)
 
                 print("++ Starting the discord thread again")
-                DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig))
+                DiscordThread = Process(target=Discord, args=(CoreConfig, ToggleConfig, item_queue, death_queue, chat_queue, discordbridge_queue, hint_queue, ap_command_queue, discordseppuku_queue))
                 DiscordThread.start()
                 DiscordCycleCount = 0
         
@@ -1954,7 +1893,7 @@ def main():
             print("++ Sleeping for 3 seconds to allow the discord thread to close")
             time.sleep(3)
             print("++ Starting the discord thread again")
-            DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig))
+            DiscordThread = Process(target=Discord, args=(CoreConfig, ToggleConfig, item_queue, death_queue, chat_queue, discordbridge_queue, hint_queue, ap_command_queue, discordseppuku_queue))
             DiscordThread.start()
             
         if not hint_queue.empty():
