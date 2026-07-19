@@ -111,8 +111,8 @@ In the `Advanced Config` section:
 ~~1. Install dependencies: `pip install -r requirements.txt`~~
 
 ## Step 6) Finally: Running the Bot
-Ensure you've joined the venv and set up the .env file, then run: `python3 bridgeipelago.py`  
-> Windows users may need to run `py bridgeipelago.py` depending on how Python set up its aliases.
+Ensure you've joined the venv and set up the config.json file, then run: `python3 bridgeipelago.py`  
+~~> Windows users may need to run `py bridgeipelago.py` depending on how Python set up its aliases.~~
 
 You'll see the bot connect to your Discord channel and join the Archipelago game.
 
@@ -127,7 +127,7 @@ This value is used to store the bot's files in key'd directories for use in a ru
 When changing rooms / AP runs, you'll need to manually purge the data directories and restart Bridgeipelago or run the [Swapping rooms via Discord](#swapping-rooms-via-discord) process via discord.
 
 ## Swapping Rooms via Discord
-You have the ability to swap rooms without manually editing the .env of the bot.
+You have the ability to swap rooms without manually editing the config.json of the bot.
 This process will automatically create new directories, and reload all data needed for running Bridgeipelago.  
 
 It's a fairly painless process, but should be done carefully and in order, as to not break Bridgeipelago into a thousand pieces.

@@ -38,12 +38,12 @@ An item for someone else:
 
 When someone with deathlink dies, it'll shame them in this channel.
 > Deathlink received from: Quasky_OOT
+> Cause: He was a dummy
 ```
 
 What this bot will NOT do:
  - DM / ping you without consent
  - Find items for you
- - Give hints
  - Find the reason the children of this world have forgotten the meaning of Christmas
 
 
@@ -67,13 +67,13 @@ You can also ask the bot to DM you all the items you've gained since last asking
 
 ```
 Example:
-You         || Item                         || Sender      || Location
-Quasky_OOT2 || Piece of Heart               || Quasky_OOT4 || Gerudo Training Ground Near Scarecrow Chest
-Quasky_OOT2 || Rupees (20)                  || Quasky_OOT4 || Ganons Castle Shadow Trial Front Chest
-Quasky_OOT2 || Bow                          || Quasky_OOT4 || Ganons Tower Boss Key Chest
-Quasky_OOT2 || Gold Skulltula Token         || Quasky_OOT4 || Sheik at Colossus
-Quasky_OOT2 || Rupees (200)                 || Quasky_OOT4 || KF Midos Bottom Left Chest
-Quasky_OOT2 || Gold Skulltula Token         || Quasky_OOT4 || KF Shop Item 6
+You         || Item                  || Sender      || Location
+Quasky_OOT2 || Piece of Heart        || Quasky_OOT4 || Gerudo Training Ground Near Scarecrow Chest
+Quasky_OOT2 || Rupees (20)           || Quasky_OOT4 || Ganons Castle Shadow Trial Front Chest
+Quasky_OOT2 || Bow                   || Quasky_OOT4 || Ganons Tower Boss Key Chest
+Quasky_OOT2 || Gold Skulltula Token  || Quasky_OOT4 || Sheik at Colossus
+Quasky_OOT2 || Rupees (200)          || Quasky_OOT4 || KF Midos Bottom Left Chest
+Quasky_OOT2 || Gold Skulltula Token  || Quasky_OOT4 || KF Shop Item 6
 ```
 Hopefully that makes sense. 
 
