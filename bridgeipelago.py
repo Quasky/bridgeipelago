@@ -1036,6 +1036,9 @@ async def Command_ListRegistrations(Sender):
             for slots in RegistrationContents:
                 Message = Message + slots + "\n"
             await Sender.send(Message)
+    except discord.Forbidden as e:
+        WriteToErrorLog("Command_ListRegistrations", "Can not send a DM to "+ str(Sender) + " - " + str(e))
+        await MainChannel.send("I can't send you a DM! Please check your privacy settings and try again.")
     except Exception as e:
         WriteToErrorLog("Command_ListRegistrations", "Error in list registrations command: " + str(e))
         print(e)
@@ -1152,6 +1155,9 @@ async def Command_GroupCheck(DMauthor, game):
             ketchupmessage = ketchupmessage + "```"
             if not ketchupmessage == "``````":
                 await DMauthor.send(ketchupmessage)
+    except discord.Forbidden as e:
+        WriteToErrorLog("Command_GroupCheck", "Can not send a DM to "+ str(DMauthor) + " - " + str(e))
+        await MainChannel.send("I can't send you a DM! Please check your privacy settings and try again.")
     except Exception as e:
         WriteToErrorLog("Command_GroupCheck", "Error in group check command: " + str(e))
         print(e)
