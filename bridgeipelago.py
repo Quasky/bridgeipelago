@@ -1124,6 +1124,9 @@ async def Command_KetchMeUp(User, message_filter):
                 ketchupmessage = ketchupmessage + "```"
                 if not ketchupmessage == "``````":
                     await User.send(ketchupmessage)
+    except discord.Forbidden as e:
+        WriteToErrorLog("Command_KetchMeUp", "Can not send a DM to "+ str(User) + " - " + str(e))
+        await MainChannel.send("I can't send you a DM! Please check your privacy settings and try again.")
     except Exception as e:
         WriteToErrorLog("Command_KetchMeUp", "Error in ketch me up command: " + str(e))
         print(e)
@@ -1262,6 +1265,9 @@ async def Command_Hints(player):
                 checkmessage = checkmessage + "```"
                 if not checkmessage == "``````":
                     await player.send(checkmessage)
+    except discord.Forbidden as e:
+        WriteToErrorLog("Command_Hints", "Can not send a DM to "+ str(player) + " - " + str(e))
+        await MainChannel.send("I can't send you a DM! Please check your privacy settings and try again.")
     except Exception as e:
         WriteToErrorLog("Command_Hints", "Error in hints command: " + str(e))
         print(e)
