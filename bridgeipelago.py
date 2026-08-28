@@ -1903,12 +1903,12 @@ def main():
 
         # Wait for game dump to be created by tracker client
         while not CheckGameDump():
-            print(f"== waiting for {GetCoreFiles("archgamedump")} to be created on when data package is received")
+            print("== waiting for " + GetCoreFiles("archgamedump") + " to be created on when data package is received")
             time.sleep(2)
 
         # Wait for connection dump to be created by tracker client
         while not CheckConnectionDump():
-            print(f"== waiting for {GetCoreFiles("archconnectiondump")} to be created on room connection")
+            print("== waiting for " + GetCoreFiles("archconnectiondump") + " to be created on room connection")
             time.sleep(2)
 
         print("== Arch Data Loaded!")
