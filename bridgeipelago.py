@@ -1888,7 +1888,7 @@ def main():
 
     # Version Checking against GitHub
     try:
-        BPversion = "live-v3.0.0"
+        BPversion = "live-v3.0.1"
         GHAPIjson = json.loads(requests.get("https://api.github.com/repos/Quasky/bridgeipelago/releases/latest").content)
         if(GHAPIjson["tag_name"] != BPversion):
             print("You are not running the current release of Bridgeipelago.")
