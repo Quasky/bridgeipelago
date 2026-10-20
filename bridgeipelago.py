@@ -137,6 +137,8 @@ def GetCoreFiles(file):
         return GetCoreDirectory("log") + 'DeathPlot.png'
     elif file == "checkplot":
         return GetCoreDirectory("log") + 'CheckPlot.png'
+    elif file == "itemdb":
+        return GetCoreDirectory("log") + 'itemdb.json'
     elif file == "archgamedump":
         return GetCoreDirectory("arch") + 'ArchGameDump.json'
     elif file == "archconnectiondump":
@@ -619,6 +621,9 @@ async def on_message(message):
         pair = ((message.content).split('$setconfig '))[1].split(' ')
         rtrnmessage = SetConfigVariable(pair[0], pair[1])
         await SendMainChannelMessage(rtrnmessage)
+
+    if message.content.startswith('$admin_forcesync')
+        await SendMainChannelMessage("This hasn't been implimented yet, but would forcefully pull any items from the room, and compare what it knows about, VS what AP is reporting.\nIf there is a discrepancy, add it to the item queues respectivly.\nAlways ensuring that if the bot went offline, it can pickup where it left off.\nMaybe i'll also have this run upon startup? Damn thatis a good idea.\nThanks coding-quasky, you're a smart guy.")
 
     if message.content.startswith('$reloadtracker'):
         ReloadBot()
@@ -1566,6 +1571,7 @@ def GetArchPassword():
         return CoreConfig["ArchipelagoConfig"]['ArchipelagoPassword']
 
 def ConfirmSpecialFiles():
+    global CoreConfig
     # Make sure all of the directories exist before we start creating files
     if not os.path.exists(GetCoreDirectory("arch")):
         os.makedirs(GetCoreDirectory("arch"))
@@ -1579,7 +1585,9 @@ def ConfirmSpecialFiles():
     if not os.path.exists(GetCoreDirectory("item")):
         os.makedirs(GetCoreDirectory("item"))
 
-    #Logfile Initialization. We need to make sure the log files exist before we start writing to them.
+    # Logfile Initialization. We need to make sure the log files exist before we start writing to them.
+    ## These files we just need them to exist.
+    ## Totally empty is fine, as the 'a' open-mode will create it if it doesn't exist, and silently continue if not.
     l = open(GetCoreFiles("deathlog"), "a")
     l.close()
 
@@ -1588,6 +1596,12 @@ def ConfirmSpecialFiles():
 
     l = open(GetCoreFiles("deathtimecode"), "a")
     l.close()
+
+    ## These files are more specialized json files, thus they need to be written with an empty array for json to parce them correctly once they're opened.
+    ## A file with no content (None / null) ==/== A empty json struct {}
+    ## Thus the json parcer will get angry if it's null and not a empty json struct.
+    if not os.path.exists(GetCoreFiles("itemdb")):
+        json.dump({}, open(GetCoreFiles("itemdb"), "w"))
 
     if not os.path.exists(GetCoreFiles("archstatus")):
         json.dump({}, open(GetCoreFiles("archstatus"), "w"))

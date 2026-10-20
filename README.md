@@ -187,6 +187,7 @@ Hopefully that makes sense.
 |`DebugMode`|Enables extra debug chat/bot options [6]|
 |`SelfHostNoWeb`|Disabled WebHost-specific functionality for self-hosted games with no WebHost module|
 |`CycleDiscord`|Setting to a value above 0 will restart the discord process every X seconds|
+|`DiscordAdminIDs`|A list of IDs that are able to run admin-level commands for the bot. Used for forcing a manual sync of the bot, and anything else I think of eventually.|
 
 **\[1] For group IDs, ensure the '&' character is at the beginning of the ID** 
 

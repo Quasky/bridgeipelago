@@ -63,6 +63,7 @@
         "DebugMode": false,
         "DiscordJoinOnly": false,
         "SelfHostNoWeb": false,
-        "CycleDiscord": 0
+        "CycleDiscord": 0,
+        "DiscordAdminIDs": []
     }
 }
