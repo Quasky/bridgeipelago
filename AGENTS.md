@@ -1,9 +1,8 @@
 # Repository guidelines
 
 - Keep `main` identical to Quasky's upstream `main`. Make Awepeeps changes on
-  `awepeeps-patches`. Permanently preserve `awepeeps-patches` on both
-  `deathpie/Awepeeps-bridgeipelago` and `awepeeps/awepeeps-bridgeipelago`; do
-  not delete it after a merge or PR.
+  `awepeeps-patches`. Permanently preserve `awepeeps-patches` on
+  `awepeeps/awepeeps-bridgeipelago`; do not delete it after a merge or PR.
 - The [README](README.md) and [setup guide](docs/setup.md) explain bot behavior
   and configuration. The adjacent awepeeps-archipelago repository's
   [bot guide](../awepeeps-archipelago/docs/discord-bot.md) and
