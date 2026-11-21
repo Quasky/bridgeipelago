@@ -4,9 +4,9 @@
   `awepeeps-patches`. Permanently preserve `awepeeps-patches` on
   `awepeeps/awepeeps-bridgeipelago`; do not delete it after a merge or PR.
 - The [README](README.md) and [setup guide](docs/setup.md) explain bot behavior
-  and configuration. The adjacent awepeeps-archipelago repository's
-  [bot guide](../awepeeps-archipelago/docs/discord-bot.md) and
-  [session workflow](../awepeeps-archipelago/docs/session-workflow.md) govern community runtime
+  and configuration. The adjacent archipelago repository's
+  [bot guide](../archipelago/docs/discord-bot.md) and
+  [session workflow](../archipelago/docs/session-workflow.md) govern community runtime
   operations and session management. Source and offline tests define behavior;
   update relevant docs when changing it.
 - Keep credentials and private state out of source, test fixtures, tool output,
