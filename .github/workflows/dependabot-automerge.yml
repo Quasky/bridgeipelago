@@ -1,0 +1,55 @@
+name: Dependabot labels
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Classify the update
+        id: classify
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          major=false
+          range="$(printf '%s\n' "$TITLE" | sed -nE 's/.* from ([0-9][0-9.]*) to ([0-9][0-9.]*).*/\1 \2/p')"
+          if [ -n "$range" ]; then
+            old="${range%% *}"
+            new="${range##* }"
+            if [ "${old%%.*}" != "${new%%.*}" ]; then major=true; fi
+          fi
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      - name: Label a major update
+        if: steps.classify.outputs.major == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR" --add-label major-update
+
+      - name: Enable native auto-merge on a public minor or patch update
+        if: steps.classify.outputs.major != 'true' && !github.event.pull_request.base.repo.private
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr merge "$PR" --auto --squash
+
+      - name: Request label-driven auto-merge on a private minor or patch update
+        if: steps.classify.outputs.major != 'true' && github.event.pull_request.base.repo.private
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR" --add-label automerge

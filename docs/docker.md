@@ -22,7 +22,4 @@ It will also create a folder named "bridgeipelago" and mount the file directorie
 
 Tee - Daa! :)
 
-(if something doesn't work please open an issue in GitHub)
-
-
-
+(if something doesn't work, ask in the [tech-support](https://discord.gg/wpdPprvYgX) Discord channel)

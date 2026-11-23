@@ -1,20 +1,20 @@
 # __| |____________________________________________________________________________| |__
 # __   ____________________________________________________________________________   __
-#   | |                                                                            | |  
-#   | | ____  ____  ___ ____   ____ _____ ___ ____  _____ _        _    ____  ___  | |  
-#   | || __ )|  _ \|_ _|  _ \ / ___| ____|_ _|  _ \| ____| |      / \  / ___|/ _ \ | |  
-#   | ||  _ \| |_) || || | | | |  _|  _|  | || |_) |  _| | |     / _ \| |  _| | | || |  
-#   | || |_) |  _ < | || |_| | |_| | |___ | ||  __/| |___| |___ / ___ \ |_| | |_| || |  
-#   | ||____/|_|_\_\___|____/_\____|_____|___|_|   |_____|_____/_/   \_\____|\___/ | |  
-#   | | / ___/ _ \|  _ \| ____|                                                    | |  
-#   | || |  | | | | |_) |  _|                                                      | |  
-#   | || |__| |_| |  _ <| |___                                                     | |  
-#   | | \____\___/|_| \_\_____| v3.0.0                                             | |  
-#   | |     A Archipelago Discord Bot                                              | |  
-#   | |                   - By Quasky                                              | |  
+#   | |                                                                            | |
+#   | | ____  ____  ___ ____   ____ _____ ___ ____  _____ _        _    ____  ___  | |
+#   | || __ )|  _ \|_ _|  _ \ / ___| ____|_ _|  _ \| ____| |      / \  / ___|/ _ \ | |
+#   | ||  _ \| |_) || || | | | |  _|  _|  | || |_) |  _| | |     / _ \| |  _| | | || |
+#   | || |_) |  _ < | || |_| | |_| | |___ | ||  __/| |___| |___ / ___ \ |_| | |_| || |
+#   | ||____/|_|_\_\___|____/_\____|_____|___|_|   |_____|_____/_/   \_\____|\___/ | |
+#   | | / ___/ _ \|  _ \| ____|                                                    | |
+#   | || |  | | | | |_) |  _|                                                      | |
+#   | || |__| |_| |  _ <| |___                                                     | |
+#   | | \____\___/|_| \_\_____| v3.0.0                                             | |
+#   | |     A Archipelago Discord Bot                                              | |
+#   | |                   - By Quasky                                              | |
 # __| |____________________________________________________________________________| |__
 # __   ____________________________________________________________________________   __
-#   | |                                                                            | |  
+#   | |                                                                            | |
 
 
 #Core Dependencies
@@ -92,7 +92,7 @@ def GenerateConfigManagers():
     global ToggleManager
     global ToggleConfig
     global ToggleLock
-    
+
     try:
         print("== Initilizing ConfigManager")
         if len(sys.argv) > 1 and sys.argv[1]:
@@ -174,7 +174,7 @@ def ItemQueueFileFor(slot):
         # because the letters themselves are safe characters.
         Encoded = "%{:02X}".format(ord(Encoded[0])) + Encoded[1:]
     return GetCoreDirectory("item") + Encoded + ".csv"
-    
+
 def GetCoreFiles(file):
     global CoreConfig
     global ConfigLock
@@ -377,7 +377,7 @@ class TrackerClient():
         PingSentTime = None
         try:
             """Handles incoming messages from the Archipelago MultiServer."""
-            
+
             while not self.is_closed.is_set():
                 #=== Message Loop ===#
                 try:
@@ -389,10 +389,10 @@ class TrackerClient():
                         args: dict = json.loads(RawMessage)[i]
                         cmd = args.get('cmd')
                         MessageObject = {"type": "APMessage", "data": args, "flag": "None"}
-                        
+
                         if CoreConfig["AdvancedConfig"]["DebugMode"] == True:
                             print(RawMessage)
-                            
+
                         if cmd == self.MessageCommand.ROOM_INFO.value:
                             try:
                                 verify_seed(CoreConfig["ArchipelagoConfig"], args)
@@ -648,7 +648,7 @@ class HintClient:
         DATA_PACKAGE = 'DataPackage'
         CONNECTED = 'Connected'
         CONNECTIONREFUSED = 'ConnectionRefused'
-        
+
     def __init__(
         self,
         slot_name: str,
@@ -751,7 +751,7 @@ class HintClient:
                 time.sleep(0.5)
                 hintlooper=hintlooper+1
                 #=== End Message Loop ===#
-                
+
         except Exception as e:
             WriteToErrorLog("Websocket", "HintClient Unhandled exception in Main Run loop: " + str(e))
             self.is_closed.set()
@@ -779,7 +779,7 @@ class HintClient:
         self.ap_connection.close()
 
     def start(self) -> None:
-        
+
         print("-- Attempting to open an HintClient connection in a new thread.")
         try:
             Port = resolve_port(CoreConfig["ArchipelagoConfig"],
@@ -1136,13 +1136,13 @@ def CanRequestHint(author, slot):
 async def on_message(message):
     if message.author == discord_client.user:
         return
-    
+
     if message.channel.id != MainChannel.id:
         return
 
     if message.content.lstrip().startswith('$') and not PrefixCommandsEnabled():
         return
-    
+
     # Registers user for a alot in Archipelago
     RegisterParts = message.content.split(None, 1)
     if RegisterParts and RegisterParts[0] == '$register':
@@ -1169,10 +1169,10 @@ async def on_message(message):
 
     # Opens a discord DM with the user, and fires off the Katchmeup process
     # When the user asks, catch them up on checks they're registered for
-    ## Yoinks their registration file, scans through it, then find the related ItemQueue file to scan through 
+    ## Yoinks their registration file, scans through it, then find the related ItemQueue file to scan through
     if message.content.startswith('$ketchmeup'):
         await Command_KetchMeUp(message.author, message.content)
-    
+
     # When the user asks, catch them up on the specified game
     ## Yoinks the specified ItemQueue file, scans through it, then sends the contents to the user
     ## Does NOT delete the file, as it's assumed the other users will want to read the file as well
@@ -1182,7 +1182,7 @@ async def on_message(message):
             await SendMainChannelMessage("Use `$groupcheck <slot>` to see the queued items for a slot.")
         else:
             await Command_GroupCheck(message.author, game)
-    
+
     if message.content.startswith('$hints'):
         await Command_Hints(message.author)
 
@@ -1212,7 +1212,7 @@ async def on_message(message):
 
     if NotifyParts and NotifyParts[0] == '$watches':
         await SendMainChannelMessage(ListItemWatches(message.author))
-    
+
     HintParts = message.content.split(None, 1)
     if HintParts and HintParts[0] == '$hint':
         hintrequest = [item.strip() for item in (HintParts[1] if len(HintParts) > 1 else "").split('|', 1)]
@@ -1235,13 +1235,13 @@ async def on_message(message):
 
     if message.content.startswith('$deathcount'):
         await Command_DeathCount()
-    
+
     if message.content.startswith('$checkcount'):
         await Command_CheckCount()
-    
+
     if message.content.startswith('$checkgraph'):
         await Command_CheckGraph()
-    
+
     # Local patch: list the player commands.
     if message.content.startswith('$help'):
         await SendMainChannelMessage(HelpText)
@@ -1251,7 +1251,7 @@ async def on_message(message):
 
     if message.content.startswith('$hello'):
         await Command_Hello(message)
-    
+
     if message.content.startswith('$archinfo'):
         if not IsBotAdmin(message.author):
             await message.channel.send("Only server administrators can use that command.")
@@ -1277,7 +1277,7 @@ async def on_message(message):
             return
         ReloadBot()
         await SendMainChannelMessage("Reloading tracker... Please wait about 5-10 seconds.")
-    
+
     if message.content.startswith('$reloaddiscord'):
         if not IsBotAdmin(message.author):
             await message.channel.send("Only server administrators can use that command.")
@@ -1299,7 +1299,7 @@ async def CheckCommandQueue():
         with ToggleLock:
             ToggleConfig["RequestPortScan"] = False
         CheckArchHost.restart()
-    
+
     if discordseppuku_queue.empty():
         return
     else:
@@ -1310,7 +1310,7 @@ async def CheckCommandQueue():
         ProcessItemQueue.stop()
         ProcessDeathQueue.stop()
         ProcessChatQueue.stop()
-        
+
         print("++ Closing Discord Client")
         exit()
 
@@ -1383,7 +1383,7 @@ async def CheckArchHost():
                 RoomHost = CoreConfig["ArchipelagoConfig"]['ArchipelagoServerURL'].split("/")[2]
                 if MainChannel is not None:
                     await MainChannel.send("The Archipelago room moved to a new port. Reconnect to **" + RoomHost + ":" + str(last_port) + "**")
-        
+
         # We catch both TypeError and JSONDecodeError becuase they are what are thrown when the Arch server is unresponsive.
         # We don't REALLY mind these, as it's a byproduct of the server being offline and we're unable to fetch it properly.
         # The bot will only scream when there is an unhandled error that we have to look into, as is the case with the other processes.
@@ -1407,7 +1407,7 @@ async def ProcessItemQueue():
             itemmessage = item_queue.get()
 
             #if message has "found their" it's a self check, output and dont log
-            query = itemmessage['data'][1]['text']      
+            query = itemmessage['data'][1]['text']
             if query == " found their ":
                 game = str(LookupGame(itemmessage['data'][0]['text']))
                 name = str(LookupSlot(itemmessage['data'][0]['text']))
@@ -1437,7 +1437,7 @@ async def ProcessItemQueue():
 
                 iitem = SpecialFormat(item,ItemClassColor(int(itemclass)),0)
                 message = "" + name + " sent " + iitem + " to " + recipient + "\nCheck: " + location
-            
+
 
                 ItemCheckLogMessage = recipient + "||" + item + "||" + name + "||" + location + "||" + itemclass + "\n"
                 BotLogMessage = timecode + "||" + ItemCheckLogMessage
@@ -1496,7 +1496,7 @@ async def ProcessDeathQueue():
         o = open(GetCoreFiles("deathlog"), "a")
         o.write(DeathLogMessage)
         o.close()
-        
+
         if CoreConfig["RelayConfig"]["DeathlinkMessages"] == True:
             DeathMessage = "**Deathlink!** "
             # Flavour
@@ -1619,7 +1619,7 @@ async def ProcessChatQueue():
     # MessageObject = {"type": "APMessage", "data": args, "flag": "None"}
     # MessageObject = {"type": "HTMessage", "data": args, "flag": "None"}
     # MessageObject = {"type": "CORE", "data": args, "flag": "None"}
-    
+
     try:
         if CoreConfig.get("RelayConfig", {}).get("HintMessages", False) is True:
             try:
@@ -1693,12 +1693,12 @@ async def ProcessChatQueue():
                 if Message['data']['type'] == 'Chat':
                     MessageMessage = Message['data']['message'].lower()
                     MessageText = Message['data']['data'][0]['text']
-                    if (MessageText).startswith(CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']) and ( 
+                    if (MessageText).startswith(CoreConfig["ArchipelagoConfig"]['ArchipelagoBotSlot']) and (
                         (MessageMessage).startswith('(discord)') or CoreConfig["RelayConfig"]["SendOwnSlotMessages"] == False
                     ):
                         await CancelProcess()
                     elif not MessageMessage.startswith("!"):
-                        await SendMainChannelMessage(MessageText) 
+                        await SendMainChannelMessage(MessageText)
                     else:
                         if CoreConfig["RelayConfig"]["APClientHelp"] == True and MessageMessage.startswith("!help"):
                             await SendMainChannelMessage(MessageText)
@@ -1735,7 +1735,7 @@ async def ProcessChatQueue():
                         elif CoreConfig["RelayConfig"]["APClientVideo"] == True and MessageMessage.startswith("!video"):
                             await SendMainChannelMessage(MessageText)
                 else:
-                    await SendMainChannelMessage(Message['data']['data'][0]['text'])  
+                    await SendMainChannelMessage(Message['data']['data'][0]['text'])
             else:
                 WriteToErrorLog("ChatQueue", "Unknown chat message type received: " + str(Message))
     except Exception as e:
@@ -2160,7 +2160,7 @@ async def Command_Hints(player):
     if CoreConfig["AdvancedConfig"]["SelfHostNoWeb"] == True:
         await MainChannel.send("This command is not available in self-hosted mode.")
         return
-    
+
     try:
         await player.create_dm()
 
@@ -2204,7 +2204,7 @@ async def Command_Hints(player):
                     found = (row.find_all('td')[6].text).strip()
                     if(found == "✔"):
                         continue
-                    
+
                     finder = (row.find_all('td')[0].text).strip()
                     receiver = (row.find_all('td')[1].text).strip()
                     item = (row.find_all('td')[2].text).strip()
@@ -2288,7 +2288,7 @@ async def Command_DeathCount():
         if len(DeathLines) == 0:
             await MainChannel.send("No deaths to report.")
             return True
-        
+
         for deathline in DeathLines:
             DeathUser = deathline.split("||")[6]
             DeathUser = DeathUser.split("\n")[0]
@@ -2344,7 +2344,7 @@ async def Command_DeathCount():
             ax.tick_params(axis='y', labelsize=20)
 
             # Add labels above bars
-            ax.bar_label(plot,fontsize=20) 
+            ax.bar_label(plot,fontsize=20)
 
             # Plot Title
             ax.set_title('Death Counts',fontsize=28)
@@ -2395,7 +2395,7 @@ async def Command_CheckCount():
             game = (row.find_all('td')[2].text).strip()
             status = (row.find_all('td')[3].text).strip()
             checks = (row.find_all('td')[4].text).strip()
-            
+
             SlotArray.append(len(slot))
             GameArray.append(len(game))
             StatusArray.append(len(status))
@@ -2473,7 +2473,7 @@ async def Command_CheckGraph():
             checks = (row.find_all('td')[4].text).strip()
             percent = (row.find_all('td')[5].text).strip()
             GameState[slot] = percent
-        
+
         GameState = {key: value for key, value in sorted(GameState.items())}
         GameNames = []
         GameCounts = []
@@ -2517,7 +2517,7 @@ async def Command_CheckGraph():
             ax.tick_params(axis='y', labelsize=20)
 
             # Add labels above bars
-            ax.bar_label(plot,fontsize=20) 
+            ax.bar_label(plot,fontsize=20)
 
             # Plot Title
             ax.set_title('Completion Percentage',fontsize=28)
@@ -2608,27 +2608,27 @@ async def Command_ArchInfo(message):
         print("== Discord Config")
         for key, value in CoreConfig["DiscordConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
-            
+
         print("== ArchipelagoConfig Config")
         for key, value in CoreConfig["ArchipelagoConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
-            
+
         print("== ItemFilterConfig Config")
         for key, value in CoreConfig["ItemFilterConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
-            
+
         print("== RelayConfig Config")
         for key, value in CoreConfig["RelayConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
-            
+
         print("== DrawbridgeConfig Config")
         for key, value in CoreConfig["DrawbridgeConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
-            
+
         print("== MetaConfig Config")
         for key, value in CoreConfig["MetaConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
-            
+
         print("== AdvancedConfig Config")
         for key, value in CoreConfig["AdvancedConfig"].items():
             print(str(key) + ": " + RedactConfigValue(key, value))
@@ -2677,7 +2677,7 @@ def WriteDataPackage(data):
 def WriteArchConnectionJSON(data):
     with open(GetCoreFiles("archconnectiondump"), 'w') as f:
         json.dump(data, f, indent=4)
-        
+
 def WriteRoomInfo(data):
     with open(GetCoreFiles("archroomdata"), 'w') as f:
         json.dump(data, f, indent=4)
@@ -2711,7 +2711,7 @@ def CheckDatapackage():
             return False
     else:
         return False
-    
+
 def CheckGameDump():
     if os.path.exists(GetCoreFiles("archgamedump")):
         return True
@@ -2727,16 +2727,16 @@ def CheckConnectionDump():
 def LookupItem(game,id):
     with open(GetCoreFiles("archgamedump"), 'r') as f:
         _ArchGameJSON = json.load(f)
-    
+
     for key in _ArchGameJSON[game]['item_name_to_id']:
         if str(_ArchGameJSON[game]['item_name_to_id'][key]) == str(id):
             return str(key)
     return str("NULL")
-    
+
 def LookupLocation(game,id):
     with open(GetCoreFiles("archgamedump"), 'r') as f:
         _ArchGameJSON = json.load(f)
-        
+
     for key in _ArchGameJSON[game]['location_name_to_id']:
         if str(_ArchGameJSON[game]['location_name_to_id'][key]) == str(id):
             return str(key)
@@ -2745,7 +2745,7 @@ def LookupLocation(game,id):
 def LookupSlot(slot):
     with open(GetCoreFiles("archconnectiondump"), 'r') as f:
         _ArchConnectionJSON = json.load(f)
-    
+
     for key in _ArchConnectionJSON['slot_info']:
         if key == slot:
             return str(_ArchConnectionJSON['slot_info'][key]['name'])
@@ -2754,7 +2754,7 @@ def LookupSlot(slot):
 def LookupGame(slot):
     with open(GetCoreFiles("archconnectiondump"), 'r') as f:
         _ArchConnectionJSON = json.load(f)
-        
+
     for key in _ArchConnectionJSON['slot_info']:
         if key == slot:
             return str(_ArchConnectionJSON['slot_info'][key]['game'])
@@ -2811,7 +2811,7 @@ def ItemFilter(itmclass,itmfilterlevel):
     else:
         #If the filter is misconfigured, just send the item. It's the user's fault. :)
         return True
-    
+
 def ItemClassColor(itmclass):
     if(itmclass & ( 1 << 0 )):
         return 4
@@ -2922,7 +2922,7 @@ def WriteToErrorLog(module,message):
     with open(GetCoreFiles("errorlog"), 'a') as f:
         put = "["+str(time.strftime("%Y-%m-%d-%H-%M-%S"))+"],["+module+"]," + message
         f.write(put + "\n")
-        
+
 def GetLanguage(key):
     try:
         LanguagePack = json.loads(open(GetCoreFiles("lang")).read())
@@ -2988,7 +2988,7 @@ def main():
             print("The current version is: " + GHAPIjson["tag_name"] + " -- You are running: " + BPversion)
     except:
         print("Unable to query GitHub API for Bridgeipelago version!")
-    
+
     # Generate the config managers and load the configs
     GenerateConfigManagers()
     #Setup Logging for the bot
@@ -3075,7 +3075,7 @@ def main():
                 DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig, item_queue, death_queue, chat_queue, seppuku_queue, discordseppuku_queue, websocket_queue, lottery_queue, discordbridge_queue, hint_queue, hintprocessing_queue))
                 DiscordThread.start()
                 DiscordCycleCount = 0
-        
+
         if not DiscordThread.is_alive():
             print("++ Discord thread is not running, restarting it")
             print("++ Closing the discord thread")
@@ -3085,7 +3085,7 @@ def main():
             print("++ Starting the discord thread again")
             DiscordThread = Process(target=Discord, args=(CoreConfig,ToggleConfig, item_queue, death_queue, chat_queue, seppuku_queue, discordseppuku_queue, websocket_queue, lottery_queue, discordbridge_queue, hint_queue, hintprocessing_queue))
             DiscordThread.start()
-            
+
         if not hint_queue.empty():
             hint_object = hint_queue.get()
             if isinstance(hint_object, dict):
@@ -3100,7 +3100,7 @@ def main():
             hintprocessing_queue.put(hint_item)
             hint_client = HintClient(
                 slot_name=hint_slot, request_context=request_context,
-            )      
+            )
             hint_client.start()
             time.sleep(5)
 

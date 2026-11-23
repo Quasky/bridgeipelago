@@ -17,10 +17,10 @@
 - The WSL runtime service must remain stopped and disabled during changes.
   Do not start/restart/enable it, deploy, connect to a live room, or send Discord
   messages without explicit deployment authorization. Unit tests must stay offline.
-- Run from this repository root with Python 3.12 or newer:
-  `python -m pip install -r requirements.txt`, then
-  `python -m unittest discover -v` and `git diff --check`.
-  These commands are portable; activate the intended virtual environment first.
+- Run from this repository root with Python 3.12 or newer. `just install` installs
+  the pinned tools and `requirements.txt`; then `just check` runs formatting, workflow
+  lint and the offline unit suite. `just test` runs the suite alone and `just secrets`
+  scans `origin/main..HEAD`. Activate the intended virtual environment first.
   Do not import `bridgeipelago.py` in tests: its initialization touches runtime
   configuration. Existing tests extract definitions with AST instead.
 - Preserve unrelated changes. Do not change Git identity, rewrite history, or
