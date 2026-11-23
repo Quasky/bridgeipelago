@@ -1,12 +1,14 @@
 name: Dependabot labels
 
 on:
-  pull_request:
+  # Dependabot-triggered pull_request runs get a read-only token, so labeling and
+  # auto-merge need the base-repository context. This job never checks out code and
+  # only runs for the Dependabot actor.
+  pull_request_target:  # zizmor: ignore[dangerous-triggers]
     types: [opened, reopened, synchronize]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: dependabot-labels-${{ github.event.pull_request.number }}
@@ -17,6 +19,9 @@ jobs:
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Classify the update
         id: classify
@@ -37,19 +42,14 @@ jobs:
         if: steps.classify.outputs.major == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-        run: gh pr edit "$PR" --add-label major-update
+        run: gh pr edit "$PR" --repo "$REPO" --add-label major-update
 
-      - name: Enable native auto-merge on a public minor or patch update
-        if: steps.classify.outputs.major != 'true' && !github.event.pull_request.base.repo.private
+      - name: Enable squash auto-merge on a minor or patch update
+        if: steps.classify.outputs.major != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-        run: gh pr merge "$PR" --auto --squash
-
-      - name: Request label-driven auto-merge on a private minor or patch update
-        if: steps.classify.outputs.major != 'true' && github.event.pull_request.base.repo.private
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-        run: gh pr edit "$PR" --add-label automerge
+        run: gh pr merge "$PR" --repo "$REPO" --squash --auto --delete-branch
