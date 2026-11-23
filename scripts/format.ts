@@ -5,6 +5,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 
 const check = process.argv.includes("--check");
+// `just fmt <files>` passes the staged files; with none, the whole repository.
+const requested = process.argv
+  .slice(2)
+  .filter((argument) => !argument.startsWith("-"));
 const skipped = /(^|\/)(\.git|node_modules|build|target|dist|out|\.gradle|\.local|output|coverage)(\/|$)/;
 const binary = /\.(png|jpe?g|gif|ico|webp|jar|zip|gz|xz|bz2|7z|pdf|class|bin|woff2?|ttf|otf|mp3|mp4|ogg|wav)$/i;
 const lockfile = /(^|\/)(bun\.lockb?|package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/;
@@ -22,7 +26,10 @@ if (listing.status !== 0) {
   process.exit(1);
 }
 
-const files = listing.stdout.toString("utf8").split("\0").filter(Boolean);
+const files =
+  requested.length > 0
+    ? requested
+    : listing.stdout.toString("utf8").split("\0").filter(Boolean);
 // .gitattributes can require CRLF (for example Windows batch files); those files
 // are checked out with CRLF and must not be rewritten to LF.
 const eol = spawnSync("git", ["check-attr", "--stdin", "-z", "eol"], {

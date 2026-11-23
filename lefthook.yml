@@ -1,0 +1,9 @@
+# Lefthook dispatcher (core.md C7.8). Policy lives in the `just` recipes from
+# the C7.10 contract; this file only loads the shared configs and would add
+# repository jobs. Repository job names must not start with `core-` or `owner-`.
+remotes:
+  - git_url: https://github.com/awepeeps/.github
+    ref: hooks-v2
+    configs:
+      - hooks/core.yml
+      - hooks/owner.yml

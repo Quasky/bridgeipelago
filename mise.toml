@@ -1,7 +1,9 @@
 [tools]
 actionlint = "1.7.12"
+"aqua:evilmartians/lefthook" = "2.2.2"
 bun = "1.4.5"
 gitleaks = "8.30.1"
 just = "1.59.0"
 python = "3.12.16"
+shellcheck = "0.10.0"
 zizmor = "1.32.0"

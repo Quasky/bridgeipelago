@@ -37,3 +37,10 @@
   not establish whether each finding is a credential. Inherited-history triage
   is deferred; scoped CI passing does not mean the complete history is clean.
   Do not alter historical values or metadata to resolve these without approval.
+
+## Git hooks
+
+Hooks are installed once per checkout with `just hooks` and run through Lefthook, loading the
+shared jobs from `awepeeps/.github` at the `hooks-v2` tag. Agents never bypass them (C7.11):
+no `LEFTHOOK=0`, no `git commit --no-verify`, and no `lefthook-local.yml`. The pre-push policy
+refuses `main` and `awepeeps-patches`; both change only through a pull request.

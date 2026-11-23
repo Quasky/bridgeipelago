@@ -1,4 +1,0 @@
-#!/bin/sh
-# Thin launcher: keep the working tree formatted before committing.
-set -eu
-exec just fmt-check
