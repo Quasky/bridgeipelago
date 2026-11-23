@@ -1,0 +1,26 @@
+name: Bug report
+description: Report a reproducible problem.
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Explain the problem without including credentials or private data.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version and environment
+      description: Include the version or commit and relevant platform details.
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Remove sensitive information before posting.
