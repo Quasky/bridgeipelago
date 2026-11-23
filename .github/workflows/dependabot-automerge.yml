@@ -4,7 +4,7 @@ on:
   # Dependabot-triggered pull_request runs get a read-only token, so labeling and
   # auto-merge need the base-repository context. This job never checks out code and
   # only runs for the Dependabot actor.
-  pull_request_target:  # zizmor: ignore[dangerous-triggers]
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, reopened, synchronize]
 
 permissions:
@@ -18,7 +18,7 @@ jobs:
   label:
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     permissions:
       contents: write
       pull-requests: write
@@ -46,10 +46,44 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: gh pr edit "$PR" --repo "$REPO" --add-label major-update
 
-      - name: Enable squash auto-merge on a minor or patch update
-        if: steps.classify.outputs.major != 'true'
+      - name: Enable native squash auto-merge on a public minor or patch update
+        if: steps.classify.outputs.major != 'true' && github.event.repository.private == false
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: gh pr merge "$PR" --repo "$REPO" --squash --auto --delete-branch
+
+      - name: Label a private minor or patch update and merge it once the checks pass
+        if: steps.classify.outputs.major != 'true' && github.event.repository.private == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # GitHub Free private repositories cannot use native auto-merge, so this
+          # job records the label and waits for the required checks itself.
+          gh pr edit "$PR" --repo "$REPO" --add-label automerge
+          for _ in $(seq 1 60); do
+            summary="$(gh pr view "$PR" --repo "$REPO" --json statusCheckRollup --jq '
+              [.statusCheckRollup[] | select((.name // .context) != "automerge") |
+               {name: (.name // .context), state: (.conclusion // .state)}] |
+              [
+                (map(select(.name == "check" and .state == "SUCCESS")) | length),
+                (map(select(.name == "secrets" and .state == "SUCCESS")) | length),
+                (map(select(.state | IN("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"))) | length)
+              ] | @tsv')"
+            IFS=$'\t' read -r check_ok secrets_ok failed <<< "$summary"
+            if [ "$failed" -gt 0 ]; then
+              echo "a check did not pass; refusing to merge"
+              exit 1
+            fi
+            if [ "$check_ok" -eq 1 ] && [ "$secrets_ok" -eq 1 ]; then
+              gh pr merge "$PR" --repo "$REPO" --squash --delete-branch
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "check and secrets did not both pass before the timeout"
+          exit 1
