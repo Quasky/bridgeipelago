@@ -22,6 +22,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: read
+      statuses: read
     steps:
       - name: Classify the update
         id: classify
