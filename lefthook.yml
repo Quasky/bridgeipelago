@@ -3,7 +3,7 @@
 # repository jobs. Repository job names must not start with `core-` or `owner-`.
 remotes:
   - git_url: https://github.com/awepeeps/.github
-    ref: hooks-v2
+    ref: hooks-v3
     configs:
       - hooks/core.yml
       - hooks/owner.yml
